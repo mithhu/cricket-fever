@@ -16,8 +16,17 @@ export class MainMenu {
 
     this._onStart = null;
     this._selectedName = null;
+    this._selectedDifficulty = 'medium';
     this._players = this._loadPlayers();
     this._bestScores = {};
+
+    this._diffBtns = document.querySelectorAll('.diff-btn');
+    this._diffBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this._selectedDifficulty = btn.dataset.diff;
+        this._diffBtns.forEach((b) => b.classList.toggle('selected', b === btn));
+      });
+    });
 
     this.newPlayerBtn.addEventListener('click', () => this._showNewPlayerForm());
     this.addPlayerBtn.addEventListener('click', () => this._addPlayer());
@@ -170,7 +179,7 @@ export class MainMenu {
     }
 
     this._saveLastPlayer(this._selectedName);
-    if (this._onStart) this._onStart(overs, this._selectedName);
+    if (this._onStart) this._onStart(overs, this._selectedName, this._selectedDifficulty);
   }
 
   onStart(callback) {
@@ -181,6 +190,10 @@ export class MainMenu {
 
   getPlayerName() {
     return this._selectedName || '';
+  }
+
+  getDifficulty() {
+    return this._selectedDifficulty;
   }
 
   show() {

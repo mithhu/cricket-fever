@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import {
-  BALL_SPEED_MIN, BALL_SPEED_MAX,
   BOWLER_RELEASE_HEIGHT, BATSMAN_Z,
   GRAVITY,
 } from '../utils/constants.js';
@@ -8,25 +7,48 @@ import { randRange } from '../utils/helpers.js';
 
 const LINE = { OFFSIDE: -0.3, MIDDLE: 0, LEGSIDE: 0.3 };
 
+const DIFFICULTY_SETTINGS = {
+  easy: {
+    speedMin: 9, speedMax: 15,
+    lineWeights: [0.2, 0.6, 0.2],
+    lengthWeights: [0.1, 0.55, 0.25, 0.1],
+    swingRange: 0.15,
+  },
+  medium: {
+    speedMin: 12, speedMax: 22,
+    lineWeights: [0.3, 0.45, 0.25],
+    lengthWeights: [0.15, 0.4, 0.25, 0.2],
+    swingRange: 0.3,
+  },
+  hard: {
+    speedMin: 16, speedMax: 28,
+    lineWeights: [0.35, 0.3, 0.35],
+    lengthWeights: [0.2, 0.3, 0.25, 0.25],
+    swingRange: 0.5,
+  },
+};
+
 export class AIBowler {
   constructor() {
-    this.difficulty = 1;
+    this.difficulty = 'medium';
+  }
+
+  setDifficulty(level) {
+    this.difficulty = level;
   }
 
   generateDelivery(releasePos) {
-    const speed = randRange(BALL_SPEED_MIN, BALL_SPEED_MAX);
+    const settings = DIFFICULTY_SETTINGS[this.difficulty] || DIFFICULTY_SETTINGS.medium;
+
+    const speed = randRange(settings.speedMin, settings.speedMax);
 
     const lines = [LINE.OFFSIDE, LINE.MIDDLE, LINE.LEGSIDE];
-    const lineWeights = [0.3, 0.45, 0.25];
-    const line = this._weightedPick(lines, lineWeights);
+    const line = this._weightedPick(lines, settings.lineWeights);
 
-    // Length factor: how far along the pitch the ball should bounce
-    // 0.3 = short, 0.5 = good length, 0.7 = full, 0.85 = yorker
     const lengths = [0.3, 0.5, 0.7, 0.85];
-    const lengthWeights = [0.15, 0.4, 0.25, 0.2];
-    const lengthFactor = this._weightedPick(lengths, lengthWeights);
+    const lengthFactor = this._weightedPick(lengths, settings.lengthWeights);
 
-    const swing = randRange(-0.3, 0.3);
+    const swing = randRange(-settings.swingRange, settings.swingRange);
 
     return this._calculateTrajectory(releasePos, speed, line, lengthFactor, swing);
   }
@@ -35,16 +57,9 @@ export class AIBowler {
     const targetZ = BATSMAN_Z;
     const dz = targetZ - releasePos.z;
 
-    // Total time for ball to reach the batsman
     const totalTime = Math.abs(dz) / speed;
-
-    // The ball should bounce at this fraction of the total distance
-    const bounceZ = releasePos.z + dz * lengthFactor;
     const bounceTime = totalTime * lengthFactor;
 
-    // We need the ball to go from releasePos.y down to 0 in bounceTime
-    // Using: y = y0 + vy*t + 0.5*g*t^2 = 0
-    // vy = (-y0 - 0.5*g*t^2) / t  (where g is GRAVITY which is negative)
     const g = GRAVITY;
     const vy = (-releasePos.y - 0.5 * g * bounceTime * bounceTime) / bounceTime;
 

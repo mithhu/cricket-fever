@@ -136,6 +136,33 @@
       font-size: 12px; color: rgba(255,100,100,0.8); margin-top: 6px;
       height: 16px; transition: opacity 0.3s; text-align: center;
     }
+
+    /* Difficulty selector */
+    #difficulty-select {
+      display: flex; flex-direction: column; align-items: center;
+      margin-bottom: 20px;
+    }
+    #difficulty-select .section-label {
+      font-size: 12px; color: #8ab4a0; text-transform: uppercase;
+      letter-spacing: 3px; margin-bottom: 10px;
+    }
+    #difficulty-btns {
+      display: flex; gap: 8px;
+    }
+    .diff-btn {
+      padding: 8px 24px; font-size: 14px; font-weight: 600;
+      background: rgba(255,255,255,0.06); color: #8ab4a0;
+      border: 2px solid rgba(138,180,160,0.25); border-radius: 24px;
+      cursor: pointer; transition: all 0.25s; text-transform: uppercase;
+      letter-spacing: 1px; font-family: inherit;
+    }
+    .diff-btn:hover {
+      background: rgba(240,192,64,0.08); border-color: rgba(240,192,64,0.4);
+    }
+    .diff-btn.selected {
+      background: rgba(240,192,64,0.15); border-color: rgba(240,192,64,0.7);
+      color: #f0c040; box-shadow: 0 0 12px rgba(240,192,64,0.15);
+    }
     #main-menu button {
       padding: 16px 60px; font-size: 20px; font-weight: 700; letter-spacing: 2px;
       background: linear-gradient(135deg, #f0c040, #e6a020); color: #1a1a2e;
@@ -214,6 +241,17 @@
     }
     #btn-end-game:hover { background: rgba(200, 60, 60, 0.9); box-shadow: 0 0 15px rgba(200,60,60,0.3); }
 
+    /* Mute button during match */
+    #btn-mute {
+      position: absolute; top: 16px; right: 280px; display: none;
+      padding: 8px 22px; font-size: 13px; font-weight: 600;
+      background: rgba(60, 60, 60, 0.7); color: #fff;
+      border: 1px solid rgba(200,200,200,0.3); border-radius: 20px;
+      cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
+      backdrop-filter: blur(6px);
+    }
+    #btn-mute:hover { background: rgba(80, 80, 80, 0.9); box-shadow: 0 0 15px rgba(200,200,200,0.2); }
+
     /* Pause button during match */
     #btn-pause {
       position: absolute; top: 16px; right: 150px; display: none;
@@ -286,6 +324,30 @@
       color: #6a8a7a; font-size: 14px; margin-bottom: 15px;
     }
 
+    /* Replay label */
+    #replay-label {
+      position: absolute; top: 16px; left: 16px; display: none;
+      font-size: 14px; font-weight: 700; color: #ff6644;
+      text-transform: uppercase; letter-spacing: 3px;
+      background: rgba(0,0,0,0.5); padding: 6px 16px; border-radius: 8px;
+      border: 1px solid rgba(255,102,68,0.4);
+      animation: replayBlink 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes replayBlink {
+      from { opacity: 0.7; }
+      to { opacity: 1; }
+    }
+
+    /* Commentary text */
+    #commentary-text {
+      position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+      font-size: 15px; font-weight: 600; color: #cde0d5; font-style: italic;
+      background: rgba(10, 15, 30, 0.7); padding: 6px 20px; border-radius: 16px;
+      border: 1px solid rgba(240,192,64,0.15); backdrop-filter: blur(6px);
+      opacity: 0; transition: opacity 0.3s; pointer-events: none;
+      white-space: nowrap;
+    }
+
     /* Ball event popup */
     #ball-event {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -312,6 +374,14 @@
           <button id="btn-cancel-player">Cancel</button>
         </div>
         <div id="name-hint">&nbsp;</div>
+      </div>
+      <div id="difficulty-select">
+        <div class="section-label">Difficulty</div>
+        <div id="difficulty-btns">
+          <button class="diff-btn" data-diff="easy">Easy</button>
+          <button class="diff-btn selected" data-diff="medium">Medium</button>
+          <button class="diff-btn" data-diff="hard">Hard</button>
+        </div>
       </div>
       <button id="btn-start-5">Quick Match (5 Overs)</button>
       <button id="btn-start-10">Quick Match (10 Overs)</button>
@@ -343,6 +413,7 @@
     <div id="controls-hint">W: Drive &nbsp; A: Pull &nbsp; D: Cut &nbsp; S: Block &nbsp; | &nbsp; SHIFT + Key: Lofted &nbsp; | &nbsp; Arrows: Move</div>
 
     <!-- Match buttons (visible during match) -->
+    <button id="btn-mute">Mute</button>
     <button id="btn-pause">Pause</button>
     <button id="btn-end-game">End Game</button>
 
@@ -352,6 +423,12 @@
       <button class="btn-resume" id="btn-resume">Resume</button>
       <button class="btn-pause-menu" id="btn-pause-menu">Main Menu</button>
     </div>
+
+    <!-- Replay Label -->
+    <div id="replay-label">Slow Mo</div>
+
+    <!-- Commentary -->
+    <div id="commentary-text"></div>
 
     <!-- Ball Event Popup -->
     <div id="ball-event"></div>

@@ -42,15 +42,16 @@ const gameEngine = new GameEngine({
   scoreboard,
   shotSelector,
   mainMenu,
+  pitch,
 });
 
 gameEngine.highScores.renderToMenu();
 mainMenu.setBestScores(gameEngine.highScores.getBestByPlayer());
 mainMenu.renderCards();
 
-mainMenu.onStart((overs, playerName) => {
+mainMenu.onStart((overs, playerName, difficulty) => {
   mainMenu.hide();
-  gameEngine.startMatch(overs, playerName);
+  gameEngine.startMatch(overs, playerName, difficulty);
 });
 
 window.addEventListener('resize', () => {
@@ -67,6 +68,7 @@ function animate(currentTime) {
 
   gameEngine.update(dt);
   gameCamera.update(dt);
+  stadium.updateCrowd(dt);
   renderer.render(scene, gameCamera.camera);
 }
 

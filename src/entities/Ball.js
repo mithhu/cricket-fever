@@ -32,6 +32,22 @@ export class Ball {
     this.shadowBlob.visible = false;
     scene.add(this.shadowBlob);
 
+    // Trail system
+    const TRAIL_COUNT = 12;
+    const trailGeo = new THREE.SphereGeometry(BALL_RADIUS * VISUAL_SCALE * 0.7, 6, 6);
+    this._trail = [];
+    for (let i = 0; i < TRAIL_COUNT; i++) {
+      const trailMat = new THREE.MeshBasicMaterial({
+        color: 0xff6644, transparent: true, opacity: 0,
+      });
+      const m = new THREE.Mesh(trailGeo, trailMat);
+      m.visible = false;
+      scene.add(m);
+      this._trail.push({ mesh: m, pos: new THREE.Vector3(), age: 0, alive: false });
+    }
+    this._trailIdx = 0;
+    this._trailTimer = 0;
+
     this.reset();
   }
 
@@ -45,6 +61,12 @@ export class Ball {
     this._rolling = false;
     this.mesh.visible = false;
     this.shadowBlob.visible = false;
+    if (this._trail) {
+      for (const t of this._trail) {
+        t.alive = false;
+        t.mesh.visible = false;
+      }
+    }
   }
 
   launch(startPos, velocity) {
@@ -121,6 +143,35 @@ export class Ball {
 
     this.shadowBlob.position.set(this.position.x, 0.02, this.position.z);
     this.shadowBlob.visible = this.position.y > 0.1;
+
+    // Trail — emit trail dots while ball is fast
+    const speed = this.velocity.length();
+    if (speed > 5) {
+      this._trailTimer += dt;
+      if (this._trailTimer >= 0.015) {
+        this._trailTimer = 0;
+        const t = this._trail[this._trailIdx];
+        t.pos.copy(this.position);
+        t.age = 0;
+        t.alive = true;
+        t.mesh.visible = true;
+        t.mesh.position.copy(this.position);
+        this._trailIdx = (this._trailIdx + 1) % this._trail.length;
+      }
+    }
+    for (const t of this._trail) {
+      if (!t.alive) continue;
+      t.age += dt;
+      const life = 0.25;
+      if (t.age >= life) {
+        t.alive = false;
+        t.mesh.visible = false;
+      } else {
+        const fade = 1 - t.age / life;
+        t.mesh.material.opacity = fade * 0.4;
+        t.mesh.scale.setScalar(fade * 0.8 + 0.2);
+      }
+    }
   }
 
   isPassedBoundary() {

@@ -4,11 +4,13 @@ import { ScoreManager } from './ScoreManager.js';
 import { InputManager } from './InputManager.js';
 import { AIBowler } from '../ai/AIBowler.js';
 import { HighScoreManager } from './HighScoreManager.js';
+import { SoundManager } from '../audio/SoundManager.js';
+import { Commentary } from '../ui/Commentary.js';
 
 const CATCH_HAND_RADIUS = 0.8;
 
 export class GameEngine {
-  constructor({ ball, batsman, bowler, fielders, gameCamera, scoreboard, shotSelector, mainMenu }) {
+  constructor({ ball, batsman, bowler, fielders, gameCamera, scoreboard, shotSelector, mainMenu, pitch }) {
     this.ball = ball;
     this.batsman = batsman;
     this.bowler = bowler;
@@ -17,12 +19,16 @@ export class GameEngine {
     this.scoreboard = scoreboard;
     this.shotSelector = shotSelector;
     this.mainMenu = mainMenu;
+    this.pitch = pitch;
 
     this.physics = new PhysicsEngine();
     this.input = new InputManager();
     this.aiBowler = new AIBowler();
     this.highScores = new HighScoreManager();
+    this.sound = new SoundManager();
+    this.commentary = new Commentary();
     this.scoreManager = null;
+    this._bouncePlayed = false;
 
     this.state = GAME_STATE.MENU;
     this._waitTimer = 0;
@@ -54,10 +60,14 @@ export class GameEngine {
 
     this._lastOvers = 5;
     this._paused = false;
+    this._slowMo = false;
+    this._slowMoTimer = 0;
+    this._slowMoScale = 1;
+    this.replayLabel = document.getElementById('replay-label');
 
     this.playAgainBtn.addEventListener('click', () => {
       this.resultScreen.style.display = 'none';
-      this.startMatch(this._lastOvers, this._playerName);
+      this.startMatch(this._lastOvers, this._playerName, this._difficulty);
     });
     this.mainMenuBtn.addEventListener('click', () => this._showMenu());
     this.endGameBtn.addEventListener('click', () => this._endGameEarly());
@@ -69,9 +79,21 @@ export class GameEngine {
       this._showMenu();
     });
 
+    this.muteBtn = document.getElementById('btn-mute');
+    if (this.muteBtn) {
+      this.muteBtn.addEventListener('click', () => {
+        const muted = this.sound.toggleMute();
+        this.muteBtn.textContent = muted ? 'Unmute' : 'Mute';
+      });
+    }
+
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Escape' && this.state !== GAME_STATE.MENU && this.state !== GAME_STATE.RESULT) {
         this._togglePause();
+      }
+      if (e.code === 'KeyM' && e.target.tagName !== 'INPUT') {
+        const muted = this.sound.toggleMute();
+        if (this.muteBtn) this.muteBtn.textContent = muted ? 'Unmute' : 'Mute';
       }
     });
   }
@@ -87,12 +109,14 @@ export class GameEngine {
     }
   }
 
-  startMatch(overs, playerName) {
+  startMatch(overs, playerName, difficulty) {
     this._paused = false;
     this.pauseOverlay.style.display = 'none';
     this.pauseBtn.textContent = 'Pause';
     this._lastOvers = overs;
     this._playerName = playerName || 'Unknown';
+    this._difficulty = difficulty || 'medium';
+    this.aiBowler.setDifficulty(this._difficulty);
     this.scoreManager = new ScoreManager(overs);
     this.state = GAME_STATE.WAITING;
     this._waitTimer = 0;
@@ -101,12 +125,14 @@ export class GameEngine {
     this.shotSelector.show();
     this.endGameBtn.style.display = 'block';
     this.pauseBtn.style.display = 'block';
+    if (this.muteBtn) this.muteBtn.style.display = 'block';
     this.scoreboard.update(this.scoreManager);
     this.batsman.resetPose();
     this.bowler.resetPosition();
     this.ball.reset();
     this.fielders.returnToPositions();
     this.gameCamera.resetForNewBall();
+    this.sound.startAmbientCrowd();
     this._startNewBall();
   }
 
@@ -120,7 +146,9 @@ export class GameEngine {
     this._intercepted = false;
     this._catchingFielder = null;
     this._catchAttempted = false;
+    this._bouncePlayed = false;
     this.ball.reset();
+    if (this.pitch) this.pitch.resetBails();
     this.batsman.resetPose();
     this.input.reset();
     this.gameCamera.resetForNewBall();
@@ -136,11 +164,13 @@ export class GameEngine {
 
   _showMenu() {
     this.state = GAME_STATE.MENU;
+    this.sound.stopAmbientCrowd();
     this.resultScreen.style.display = 'none';
     this.scoreboard.hide();
     this.shotSelector.hide();
     this.endGameBtn.style.display = 'none';
     this.pauseBtn.style.display = 'none';
+    if (this.muteBtn) this.muteBtn.style.display = 'none';
     this.ball.reset();
     this.bowler.resetPosition();
     this.batsman.resetPose();
@@ -159,6 +189,7 @@ export class GameEngine {
 
   update(dt) {
     if (this._paused) return;
+    dt = this.applySlowMo(dt);
 
     this.fielders.update(
       dt,
@@ -200,6 +231,8 @@ export class GameEngine {
         break;
     }
 
+    this.commentary.update(dt);
+
     if (this._eventPopupTimer > 0) {
       this._eventPopupTimer -= dt;
       if (this._eventPopupTimer <= 0) {
@@ -216,6 +249,7 @@ export class GameEngine {
     this.bowler.startBowling((releasePos) => {
       this._deliveryData = this.aiBowler.generateDelivery(releasePos);
       this.ball.launch(releasePos, this._deliveryData.velocity);
+      this.sound.playBowlRelease();
     });
   }
 
@@ -234,6 +268,10 @@ export class GameEngine {
 
     if (this.ball.active) {
       this.gameCamera.followBall(this.ball.position, false);
+      if (!this._bouncePlayed && this.ball.hasBounced) {
+        this._bouncePlayed = true;
+        this.sound.playBounce();
+      }
     }
 
     if (!this._shotPlayed) {
@@ -277,6 +315,7 @@ export class GameEngine {
     const velocity = this.physics.calculateShotVelocity(trigger.shot, trigger.lofted, timing);
     if (velocity) {
       this.ball.hitByBat(velocity);
+      this.sound.playBatCrack();
       this._shotResult = {
         type: 'hit',
         shot: trigger.shot,
@@ -373,6 +412,9 @@ export class GameEngine {
     this.scoreManager.addBall();
     this.scoreboard.update(this.scoreManager);
     this._showBallEvent(runs === 6 ? 'SIX!' : 'FOUR!');
+    this.sound.playBoundaryCheer(runs === 6);
+    if (runs === 6) this.commentary.onSix(); else this.commentary.onFour();
+    this._triggerSlowMo(runs === 6 ? 1.5 : 1.0);
     this._ballSettleTimer = 0;
     this._finishBall();
   }
@@ -383,8 +425,11 @@ export class GameEngine {
     this.scoreboard.update(this.scoreManager);
     if (runs === 0) {
       this._showBallEvent('DOT');
+      this.sound.playDotBall();
+      this.commentary.onDot();
     } else {
       this._showBallEvent(`${runs} run${runs > 1 ? 's' : ''}`);
+      this.commentary.onRuns(runs);
     }
     this._ballSettleTimer = 0;
     this._finishBall();
@@ -396,6 +441,8 @@ export class GameEngine {
     this.scoreManager.lastBallResult = 'dot';
     this.scoreboard.update(this.scoreManager);
     this._showBallEvent('DOT');
+    this.sound.playDotBall();
+    this.commentary.onDot();
     this._finishBall();
   }
 
@@ -404,6 +451,15 @@ export class GameEngine {
     this.scoreManager.addBall();
     this.scoreboard.update(this.scoreManager);
     this._showBallEvent(`WICKET!\n${type.toUpperCase()}`);
+    if (type === 'bowled') {
+      this.sound.playWicketFall();
+      this.commentary.onBowled();
+      if (this.pitch) this.pitch.triggerBailsFly();
+    } else {
+      this.sound.playCatchCheer();
+      this.commentary.onCaught();
+    }
+    this._triggerSlowMo(1.5);
     this._ballSettleTimer = 0;
     this._finishBall();
   }
@@ -418,6 +474,7 @@ export class GameEngine {
     this._ballDoneTimer += dt;
     this.batsman.update(dt);
     this.bowler.update(dt);
+    if (this.pitch) this.pitch.updateBails(dt);
 
     if (this._ballDoneTimer >= 2.0) {
       if (this.scoreManager.isInningsOver()) {
@@ -430,6 +487,7 @@ export class GameEngine {
 
   _showResult() {
     this.state = GAME_STATE.RESULT;
+    this.sound.stopAmbientCrowd();
     const summary = this.scoreManager.getSummary();
     summary.playerName = this._playerName;
 
@@ -460,7 +518,27 @@ export class GameEngine {
     this.shotSelector.hide();
     this.endGameBtn.style.display = 'none';
     this.pauseBtn.style.display = 'none';
+    if (this.muteBtn) this.muteBtn.style.display = 'none';
     this.resultScreen.style.display = 'flex';
+  }
+
+  _triggerSlowMo(duration) {
+    this._slowMo = true;
+    this._slowMoTimer = duration;
+    this._slowMoScale = 0.2;
+    if (this.replayLabel) this.replayLabel.style.display = 'block';
+  }
+
+  applySlowMo(dt) {
+    if (!this._slowMo) return dt;
+    this._slowMoTimer -= dt;
+    if (this._slowMoTimer <= 0) {
+      this._slowMo = false;
+      this._slowMoScale = 1;
+      if (this.replayLabel) this.replayLabel.style.display = 'none';
+      return dt;
+    }
+    return dt * this._slowMoScale;
   }
 
   _showBallEvent(text) {

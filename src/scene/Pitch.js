@@ -38,8 +38,13 @@ export class Pitch {
     const stumpMat = new THREE.MeshLambertMaterial({ color: 0xf5f0dc });
     const bailMat = new THREE.MeshLambertMaterial({ color: 0xf5e6b8 });
 
+    this._batsmanBails = [];
+    this._bailAnims = [];
+
     for (const zSign of [-1, 1]) {
       const z = zSign * PITCH_HALF;
+      const isBatsmanEnd = zSign === 1;
+
       for (let i = -1; i <= 1; i++) {
         const stumpGeo = new THREE.CylinderGeometry(STUMP_RADIUS, STUMP_RADIUS, STUMP_HEIGHT, 8);
         const stump = new THREE.Mesh(stumpGeo, stumpMat);
@@ -48,13 +53,64 @@ export class Pitch {
         this.stumpsGroup.add(stump);
       }
 
-      // Bails
       for (let i = 0; i < 2; i++) {
         const bailGeo = new THREE.CylinderGeometry(0.008, 0.008, STUMP_GAP + 0.02, 6);
         const bail = new THREE.Mesh(bailGeo, bailMat);
         bail.rotation.z = Math.PI / 2;
-        bail.position.set((i - 0.5) * STUMP_GAP, STUMP_HEIGHT + 0.01, z);
+        const restX = (i - 0.5) * STUMP_GAP;
+        const restY = STUMP_HEIGHT + 0.01;
+        bail.position.set(restX, restY, z);
         this.stumpsGroup.add(bail);
+
+        if (isBatsmanEnd) {
+          this._batsmanBails.push(bail);
+          bail.userData.restPos = new THREE.Vector3(restX, restY, z);
+          bail.userData.restRot = new THREE.Euler(0, 0, Math.PI / 2);
+        }
+      }
+    }
+  }
+
+  triggerBailsFly() {
+    if (this._bailAnims.length > 0) return;
+    for (const bail of this._batsmanBails) {
+      this._bailAnims.push({
+        bail,
+        vx: (Math.random() - 0.5) * 3,
+        vy: 4 + Math.random() * 3,
+        vz: 1 + Math.random() * 2,
+        vRotX: (Math.random() - 0.5) * 15,
+        vRotZ: (Math.random() - 0.5) * 15,
+        time: 0,
+      });
+    }
+  }
+
+  resetBails() {
+    this._bailAnims = [];
+    for (const bail of this._batsmanBails) {
+      bail.position.copy(bail.userData.restPos);
+      bail.rotation.set(0, 0, Math.PI / 2);
+    }
+  }
+
+  updateBails(dt) {
+    for (const a of this._bailAnims) {
+      a.time += dt;
+      a.vy -= 9.81 * dt;
+      a.bail.position.x += a.vx * dt;
+      a.bail.position.y += a.vy * dt;
+      a.bail.position.z += a.vz * dt;
+      a.bail.rotation.x += a.vRotX * dt;
+      a.bail.rotation.z += a.vRotZ * dt;
+
+      if (a.bail.position.y < 0.01) {
+        a.bail.position.y = 0.01;
+        a.vy = 0;
+        a.vx *= 0.5;
+        a.vz *= 0.5;
+        a.vRotX *= 0.3;
+        a.vRotZ *= 0.3;
       }
     }
   }

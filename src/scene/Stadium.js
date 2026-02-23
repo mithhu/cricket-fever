@@ -14,12 +14,41 @@ export class Stadium {
   }
 
   _buildGround() {
+    // Main ground with vertex color variation for natural look
     const groundGeo = new THREE.CircleGeometry(GROUND_RADIUS, 64);
-    const groundMat = new THREE.MeshLambertMaterial({ color: 0x2d7a3a });
+    const colors = [];
+    const pos = groundGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const dist = Math.sqrt(x * x + z * z) / GROUND_RADIUS;
+      const noise = Math.sin(x * 0.8) * Math.cos(z * 0.6) * 0.04
+                  + Math.sin(x * 2.1 + z * 1.7) * 0.02;
+      const g = 0.42 + noise - dist * 0.06;
+      colors.push(0.15 + noise * 0.5, g, 0.18 + noise * 0.3);
+    }
+    groundGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const groundMat = new THREE.MeshLambertMaterial({ vertexColors: true });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.group.add(ground);
+
+    // Mowing stripes — alternating light/dark bands
+    const stripeCount = 14;
+    for (let i = 0; i < stripeCount; i++) {
+      if (i % 2 === 0) continue;
+      const innerR = (i / stripeCount) * BOUNDARY_RADIUS;
+      const outerR = ((i + 1) / stripeCount) * BOUNDARY_RADIUS;
+      const stripeGeo = new THREE.RingGeometry(innerR, outerR, 64);
+      const stripeMat = new THREE.MeshLambertMaterial({
+        color: 0x2a6e34, transparent: true, opacity: 0.15, side: THREE.DoubleSide,
+      });
+      const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+      stripe.rotation.x = -Math.PI / 2;
+      stripe.position.y = 0.006;
+      this.group.add(stripe);
+    }
 
     // Outfield rings for visual depth
     const ring1Geo = new THREE.RingGeometry(BOUNDARY_RADIUS - 8, BOUNDARY_RADIUS - 6, 64);
@@ -49,7 +78,11 @@ export class Stadium {
   }
 
   _buildStands() {
+    this._crowdPeople = [];
     const standCount = 12;
+    const crowdColors = [0xcc3333, 0x3366cc, 0xffcc00, 0x33aa55, 0xffffff, 0xff6600, 0x9933cc];
+    const personGeo = new THREE.BoxGeometry(0.5, 0.8, 0.4);
+
     for (let i = 0; i < standCount; i++) {
       const angle = (i / standCount) * Math.PI * 2;
       const r = GROUND_RADIUS + 3;
@@ -68,6 +101,47 @@ export class Stadium {
       stand.castShadow = true;
       stand.receiveShadow = true;
       this.group.add(stand);
+
+      const rows = 3;
+      const cols = Math.floor(width / 1.2);
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          if (Math.random() < 0.3) continue;
+          const color = crowdColors[Math.floor(Math.random() * crowdColors.length)];
+          const mat = new THREE.MeshLambertMaterial({ color });
+          const person = new THREE.Mesh(personGeo, mat);
+
+          const lx = (col - cols / 2) * 1.2 + (Math.random() - 0.5) * 0.3;
+          const ly = height + 0.4 + row * 1.0;
+          const lz = -depth / 2 + 1 + row * 1.5;
+
+          const cos = Math.cos(angle);
+          const sin = Math.sin(angle);
+
+          person.position.set(
+            cos * r + lx * (-sin) + lz * (-cos) * 0.3,
+            ly,
+            sin * r + lx * cos + lz * (-sin) * 0.3
+          );
+          person.lookAt(0, ly, 0);
+
+          this.group.add(person);
+          this._crowdPeople.push({
+            mesh: person,
+            baseY: ly,
+            phase: Math.random() * Math.PI * 2,
+            speed: 1.5 + Math.random() * 1.5,
+            amp: 0.05 + Math.random() * 0.1,
+          });
+        }
+      }
+    }
+  }
+
+  updateCrowd(_dt) {
+    const t = performance.now() * 0.001;
+    for (const p of this._crowdPeople) {
+      p.mesh.position.y = p.baseY + Math.sin(t * p.speed + p.phase) * p.amp;
     }
   }
 
