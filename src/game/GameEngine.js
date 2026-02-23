@@ -60,6 +60,7 @@ export class GameEngine {
 
     this._lastOvers = 5;
     this._paused = false;
+    this.touchController = null;
     this._slowMo = false;
     this._slowMoTimer = 0;
     this._slowMoScale = 1;
@@ -133,6 +134,7 @@ export class GameEngine {
     this.fielders.returnToPositions();
     this.gameCamera.resetForNewBall();
     this.sound.startAmbientCrowd();
+    if (this.touchController) this.touchController.show();
     this._startNewBall();
   }
 
@@ -171,6 +173,7 @@ export class GameEngine {
     this.endGameBtn.style.display = 'none';
     this.pauseBtn.style.display = 'none';
     if (this.muteBtn) this.muteBtn.style.display = 'none';
+    if (this.touchController) this.touchController.hide();
     this.ball.reset();
     this.bowler.resetPosition();
     this.batsman.resetPose();
@@ -519,6 +522,7 @@ export class GameEngine {
     this.endGameBtn.style.display = 'none';
     this.pauseBtn.style.display = 'none';
     if (this.muteBtn) this.muteBtn.style.display = 'none';
+    if (this.touchController) this.touchController.hide();
     this.resultScreen.style.display = 'flex';
   }
 

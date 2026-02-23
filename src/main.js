@@ -10,6 +10,7 @@ import { GameEngine } from './game/GameEngine.js';
 import { Scoreboard } from './ui/Scoreboard.js';
 import { MainMenu } from './ui/MainMenu.js';
 import { ShotSelector } from './ui/ShotSelector.js';
+import { TouchController } from './game/TouchController.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -44,6 +45,9 @@ const gameEngine = new GameEngine({
   mainMenu,
   pitch,
 });
+
+const touchController = new TouchController(gameEngine.input);
+gameEngine.touchController = touchController;
 
 gameEngine.highScores.renderToMenu();
 mainMenu.setBestScores(gameEngine.highScores.getBestByPlayer());

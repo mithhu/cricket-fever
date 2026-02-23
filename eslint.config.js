@@ -11,6 +11,9 @@ export default [
         performance: 'readonly',
         requestAnimationFrame: 'readonly',
         console: 'readonly',
+        navigator: 'readonly',
+        AudioContext: 'readonly',
+        OscillatorNode: 'readonly',
       },
     },
     rules: {

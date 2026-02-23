@@ -43,6 +43,24 @@
 - [x] Ball rolling physics — hard-hit balls roll further with gradual friction
 - [x] Pause/Resume — pause button + Escape key, overlay with resume/menu options
 
+### Mobile & Responsive
+- [x] Touch controls — D-pad for movement, shot buttons (Drive/Pull/Cut/Block), lofted toggle
+- [x] Auto-detect touch device — controls shown only on mobile/tablet
+- [x] Responsive layout — scoreboard, menus, buttons scale for small screens
+- [x] Touch-safe canvas — no zoom/scroll on game area
+- [x] Mobile-friendly menu — keyboard hints swap to touch hints
+
+### Phase 1: Polish & Game Feel (v0.2)
+- [x] Sound effects — bat crack, crowd roar, wicket fall, boundary cheer, ambient, bounce (Web Audio API)
+- [x] Commentary — 40+ text-based commentary lines across 9 event categories
+- [x] Ball trail — 12-particle fading trail on fast deliveries
+- [x] Slow-mo replay — 20% time scale on boundaries and wickets
+- [x] Flying bails — bails launch with physics on bowled dismissals
+- [x] Crowd animation — colored crowd figures in stands with sway
+- [x] Grass variation — procedural vertex colors + mowing stripe rings
+- [x] Difficulty levels — Easy/Medium/Hard selector on main menu
+- [x] Mute button — toggle audio with button or M key
+
 ---
 
 ## Commit Log

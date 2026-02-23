@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Cricket Fever</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
 
     /* UI Overlay */
     #ui-overlay {
@@ -19,12 +21,14 @@
     /* Main Menu */
     #main-menu {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      display: flex; flex-direction: column; align-items: center;
       background: linear-gradient(135deg, #0a1628 0%, #1a3a2a 50%, #0a1628 100%);
+      overflow-y: auto; padding: 60px 0;
     }
     #main-menu h1 {
       font-size: 72px; color: #f0c040; text-shadow: 0 0 30px rgba(240,192,64,0.5);
       letter-spacing: 4px; margin-bottom: 8px; font-weight: 900;
+      margin-top: auto;
     }
     #main-menu .subtitle {
       font-size: 18px; color: #8ab4a0; letter-spacing: 8px; text-transform: uppercase; margin-bottom: 60px;
@@ -149,17 +153,18 @@
     #difficulty-btns {
       display: flex; gap: 8px;
     }
-    .diff-btn {
+    #main-menu .diff-btn {
       padding: 8px 24px; font-size: 14px; font-weight: 600;
       background: rgba(255,255,255,0.06); color: #8ab4a0;
       border: 2px solid rgba(138,180,160,0.25); border-radius: 24px;
       cursor: pointer; transition: all 0.25s; text-transform: uppercase;
-      letter-spacing: 1px; font-family: inherit;
+      letter-spacing: 1px; font-family: inherit; margin: 0;
     }
-    .diff-btn:hover {
+    #main-menu .diff-btn:hover {
       background: rgba(240,192,64,0.08); border-color: rgba(240,192,64,0.4);
+      box-shadow: none;
     }
-    .diff-btn.selected {
+    #main-menu .diff-btn.selected {
       background: rgba(240,192,64,0.15); border-color: rgba(240,192,64,0.7);
       color: #f0c040; box-shadow: 0 0 12px rgba(240,192,64,0.15);
     }
@@ -290,7 +295,7 @@
 
     /* High Scores on main menu */
     #high-scores {
-      margin-top: 30px; text-align: center;
+      margin-top: 30px; margin-bottom: auto; text-align: center;
     }
     #high-scores h3 {
       font-size: 14px; color: #f0c040; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px;
@@ -354,6 +359,130 @@
       display: none; font-size: 64px; font-weight: 900; color: #f0c040;
       text-shadow: 0 0 40px rgba(240,192,64,0.6); pointer-events: none;
     }
+
+    /* ── Touch Controls (mobile) ── */
+    #touch-controls {
+      display: none; /* shown via JS on touch devices */
+      position: absolute; bottom: 0; left: 0; width: 100%; height: 220px;
+      pointer-events: none; z-index: 20;
+    }
+    #touch-controls > * { pointer-events: auto; }
+
+    /* D-pad (left side) — movement */
+    #touch-dpad {
+      position: absolute; bottom: 24px; left: 24px;
+      width: 130px; height: 130px;
+    }
+    .dpad-btn {
+      position: absolute; width: 42px; height: 42px;
+      background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 10px; color: #fff; font-size: 18px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none; cursor: pointer;
+      transition: background 0.1s;
+    }
+    .dpad-btn:active, .dpad-btn.pressed {
+      background: rgba(240,192,64,0.35); border-color: rgba(240,192,64,0.6);
+    }
+    .dpad-up    { top: 0; left: 50%; transform: translateX(-50%); }
+    .dpad-down  { bottom: 0; left: 50%; transform: translateX(-50%); }
+    .dpad-left  { top: 50%; left: 0; transform: translateY(-50%); }
+    .dpad-right { top: 50%; right: 0; transform: translateY(-50%); }
+
+    /* Shot buttons (right side) */
+    #touch-shots {
+      position: absolute; bottom: 20px; right: 20px;
+      width: 160px; height: 160px;
+    }
+    .shot-btn {
+      position: absolute; width: 56px; height: 56px;
+      background: rgba(240,192,64,0.15); border: 2px solid rgba(240,192,64,0.4);
+      border-radius: 50%; color: #f0c040; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; line-height: 1.1;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none; cursor: pointer;
+      transition: background 0.1s;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .shot-btn:active, .shot-btn.pressed {
+      background: rgba(240,192,64,0.5); color: #fff;
+    }
+    .shot-drive  { top: 0; left: 50%; transform: translateX(-50%); }
+    .shot-pull   { top: 50%; left: 0; transform: translateY(-50%); }
+    .shot-cut    { top: 50%; right: 0; transform: translateY(-50%); }
+    .shot-block  { bottom: 0; left: 50%; transform: translateX(-50%); }
+
+    /* Lofted toggle */
+    #touch-lofted {
+      position: absolute; bottom: 80px; right: 190px;
+      width: 56px; height: 56px;
+      background: rgba(100,180,100,0.12); border: 2px solid rgba(100,180,100,0.35);
+      border-radius: 50%; color: #8fc88f; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; line-height: 1.1;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none; cursor: pointer;
+      transition: background 0.15s;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    #touch-lofted.active {
+      background: rgba(100,200,100,0.45); border-color: rgba(100,200,100,0.8);
+      color: #fff; box-shadow: 0 0 12px rgba(100,200,100,0.3);
+    }
+
+    /* Responsive: smaller screens */
+    @media (max-width: 768px) {
+      #main-menu h1 { font-size: 40px; }
+      #main-menu .subtitle { font-size: 13px; letter-spacing: 4px; margin-bottom: 30px; }
+      #main-menu button { padding: 12px 36px; font-size: 16px; }
+      #player-select { width: 90vw; }
+      .player-card { padding: 6px 12px; font-size: 13px; }
+      .player-card .card-avatar { width: 22px; height: 22px; font-size: 10px; }
+      .diff-btn { padding: 6px 16px; font-size: 12px; }
+      #high-scores { margin-top: 20px; }
+      #high-scores .hs-row { font-size: 11px; gap: 8px; }
+      .menu-info { font-size: 11px; margin-top: 20px; }
+
+      #scoreboard .score-inner { padding: 6px 12px; gap: 12px; }
+      .score-label { font-size: 8px; }
+      .score-value { font-size: 16px; }
+      .score-value.runs { font-size: 22px; }
+
+      #ball-event { font-size: 40px; }
+
+      #btn-end-game, #btn-pause, #btn-mute {
+        padding: 6px 14px; font-size: 11px;
+      }
+      #btn-end-game { right: 8px; top: auto; bottom: 230px; }
+      #btn-pause { right: 8px; top: auto; bottom: 270px; }
+      #btn-mute { right: 8px; top: auto; bottom: 310px; }
+
+      #shot-indicator { bottom: 230px; }
+      #controls-hint { display: none !important; }
+
+      #commentary-text { top: auto; bottom: 230px; font-size: 12px; }
+
+      #result-screen h2 { font-size: 32px; }
+      #result-screen .final-score { font-size: 48px; }
+      #result-screen .score-details { font-size: 14px; }
+      #result-screen button { padding: 12px 36px; font-size: 15px; }
+    }
+
+    @media (max-width: 480px) {
+      #main-menu h1 { font-size: 30px; }
+      #main-menu .subtitle { font-size: 11px; letter-spacing: 3px; margin-bottom: 20px; }
+      #main-menu button { padding: 10px 28px; font-size: 14px; margin: 5px; }
+      #player-cards { gap: 6px; }
+      .player-card { padding: 5px 10px; font-size: 12px; gap: 5px; }
+
+      #touch-dpad { left: 12px; bottom: 16px; width: 110px; height: 110px; }
+      .dpad-btn { width: 36px; height: 36px; font-size: 15px; }
+      #touch-shots { right: 12px; bottom: 14px; width: 140px; height: 140px; }
+      .shot-btn { width: 48px; height: 48px; font-size: 10px; }
+      #touch-lofted { right: 162px; bottom: 66px; width: 48px; height: 48px; font-size: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -385,7 +514,7 @@
       </div>
       <button id="btn-start-5">Quick Match (5 Overs)</button>
       <button id="btn-start-10">Quick Match (10 Overs)</button>
-      <div class="menu-info">
+      <div class="menu-info" id="menu-controls-info">
         W — Straight Drive &nbsp;|&nbsp; A — Pull Shot &nbsp;|&nbsp; D — Cut Shot &nbsp;|&nbsp; S — Block<br>
         Hold SHIFT + Key — Lofted Shot &nbsp;|&nbsp; Arrow Keys — Move in Crease
       </div>
@@ -429,6 +558,23 @@
 
     <!-- Commentary -->
     <div id="commentary-text"></div>
+
+    <!-- Touch Controls (mobile) -->
+    <div id="touch-controls">
+      <div id="touch-dpad">
+        <div class="dpad-btn dpad-up" data-dir="up">&uarr;</div>
+        <div class="dpad-btn dpad-down" data-dir="down">&darr;</div>
+        <div class="dpad-btn dpad-left" data-dir="left">&larr;</div>
+        <div class="dpad-btn dpad-right" data-dir="right">&rarr;</div>
+      </div>
+      <div id="touch-shots">
+        <div class="shot-btn shot-drive" data-shot="drive">Drive</div>
+        <div class="shot-btn shot-pull" data-shot="pull">Pull</div>
+        <div class="shot-btn shot-cut" data-shot="cut">Cut</div>
+        <div class="shot-btn shot-block" data-shot="block">Block</div>
+      </div>
+      <div id="touch-lofted">Loft</div>
+    </div>
 
     <!-- Ball Event Popup -->
     <div id="ball-event"></div>
