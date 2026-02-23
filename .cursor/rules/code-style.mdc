@@ -1,0 +1,45 @@
+---
+description: Cricket Fever coding style and conventions
+alwaysApply: true
+---
+
+# Cricket Fever — Code Style Guide
+
+Follow these conventions in all new code. Full guide: `docs/CODE_STYLE.md`
+
+## Structure
+- Game logic in `src/game/` (GameEngine, PhysicsEngine, ScoreManager, InputManager)
+- 3D entities in `src/entities/` (Ball, Batsman, Bowler, Fielders)
+- Scene setup in `src/scene/` (Stadium, Pitch, Camera)
+- UI overlays in `src/ui/` (Scoreboard, MainMenu, ShotSelector)
+- AI logic in `src/ai/` (AIBowler)
+- Constants and helpers in `src/utils/`
+
+## JavaScript
+- ES modules with explicit `.js` extensions in imports
+- No frameworks; vanilla JS + Three.js only
+- Classes for entities and managers; avoid global state
+- Use `const` by default; `let` only when reassignment is needed
+
+## Naming
+- Classes: PascalCase (`GameEngine`, `AIBowler`)
+- Files: PascalCase for classes (`GameEngine.js`), camelCase for utilities (`helpers.js`)
+- Constants: UPPER_SNAKE (`BALL_SPEED_MIN`, `GAME_STATE`)
+- Private methods/properties: underscore prefix (`_startNewBall`, `_animState`)
+
+## 3D / Three.js
+- All meshes added to `scene` in constructors; cleaned up if needed
+- Use `THREE.Group` for hierarchical models (skeletal joints)
+- Programmatic animations via joint rotations; no external model files
+- Keep physics radius separate from visual scale
+
+## UI
+- HTML/CSS overlays on the 3D canvas; no React/Vue
+- Game-themed styling: dark backgrounds, gold (#f0c040) accents, green (#8ab4a0) text
+- All UI elements in `#ui-overlay` with `pointer-events: auto`
+
+## When Adding Features
+1. Add constants to `src/utils/constants.js` if reusable
+2. Create entity/manager class in the appropriate `src/` subfolder
+3. Wire into `GameEngine` and `main.js`
+4. Update `docs/PROGRESS.md` and `docs/ROADMAP.md` after committing

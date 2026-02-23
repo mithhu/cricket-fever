@@ -1,0 +1,3 @@
+#!/bin/sh
+# Update cursor_helper/PROGRESS.md with latest commit
+sh scripts/update-progress.sh

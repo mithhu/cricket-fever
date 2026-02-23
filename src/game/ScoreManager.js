@@ -1,0 +1,76 @@
+export class ScoreManager {
+  constructor(totalOvers) {
+    this.totalOvers = totalOvers;
+    this.reset();
+  }
+
+  reset() {
+    this.runs = 0;
+    this.wickets = 0;
+    this.ballsFaced = 0;
+    this.extras = 0;
+    this.fours = 0;
+    this.sixes = 0;
+    this.batsmanRuns = 0;
+    this.batsmanBalls = 0;
+    this.lastBallResult = '—';
+    this.ballLog = [];
+  }
+
+  addRuns(runs) {
+    this.runs += runs;
+    this.batsmanRuns += runs;
+    if (runs === 4) this.fours++;
+    if (runs === 6) this.sixes++;
+    this.lastBallResult = runs === 0 ? 'dot' : `${runs}`;
+    if (runs === 4) this.lastBallResult = 'FOUR!';
+    if (runs === 6) this.lastBallResult = 'SIX!';
+  }
+
+  addWicket(dismissalType) {
+    this.wickets++;
+    this.lastBallResult = `W (${dismissalType})`;
+    this.batsmanRuns = 0;
+    this.batsmanBalls = 0;
+  }
+
+  addBall() {
+    this.ballsFaced++;
+    this.batsmanBalls++;
+    this.ballLog.push(this.lastBallResult);
+  }
+
+  getOversString() {
+    const completedOvers = Math.floor(this.ballsFaced / 6);
+    const ballsInOver = this.ballsFaced % 6;
+    return `${completedOvers}.${ballsInOver}`;
+  }
+
+  getRunRate() {
+    const overs = this.ballsFaced / 6;
+    if (overs === 0) return 0;
+    return (this.runs / overs).toFixed(2);
+  }
+
+  getStrikeRate() {
+    if (this.batsmanBalls === 0) return 0;
+    return ((this.batsmanRuns / this.batsmanBalls) * 100).toFixed(1);
+  }
+
+  isInningsOver() {
+    return this.wickets >= 10 || this.ballsFaced >= this.totalOvers * 6;
+  }
+
+  getSummary() {
+    return {
+      runs: this.runs,
+      wickets: this.wickets,
+      overs: this.getOversString(),
+      runRate: this.getRunRate(),
+      fours: this.fours,
+      sixes: this.sixes,
+      balls: this.ballsFaced,
+      strikeRate: ((this.runs / Math.max(this.ballsFaced, 1)) * 100).toFixed(1),
+    };
+  }
+}

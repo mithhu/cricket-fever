@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cricket Fever</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+    /* UI Overlay */
+    #ui-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 10;
+    }
+    #ui-overlay > * { pointer-events: auto; }
+
+    /* Main Menu */
+    #main-menu {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #0a1628 0%, #1a3a2a 50%, #0a1628 100%);
+    }
+    #main-menu h1 {
+      font-size: 72px; color: #f0c040; text-shadow: 0 0 30px rgba(240,192,64,0.5);
+      letter-spacing: 4px; margin-bottom: 8px; font-weight: 900;
+    }
+    #main-menu .subtitle {
+      font-size: 18px; color: #8ab4a0; letter-spacing: 8px; text-transform: uppercase; margin-bottom: 60px;
+    }
+    /* Player selection area */
+    #player-select {
+      display: flex; flex-direction: column; align-items: center;
+      margin-bottom: 24px; width: 400px; max-width: 90vw;
+    }
+    #player-select .section-label {
+      font-size: 12px; color: #8ab4a0; text-transform: uppercase;
+      letter-spacing: 3px; margin-bottom: 12px;
+    }
+    #player-cards {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+      margin-bottom: 12px; min-height: 44px;
+    }
+    .player-card {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 18px; border-radius: 24px; cursor: pointer;
+      background: rgba(255,255,255,0.06); border: 2px solid rgba(138,180,160,0.25);
+      color: #cde0d5; font-size: 15px; font-weight: 600; letter-spacing: 0.5px;
+      transition: all 0.25s ease; font-family: inherit;
+    }
+    .player-card:hover {
+      background: rgba(240,192,64,0.08); border-color: rgba(240,192,64,0.4);
+    }
+    .player-card.selected {
+      background: rgba(240,192,64,0.15); border-color: rgba(240,192,64,0.7);
+      color: #f0c040; box-shadow: 0 0 16px rgba(240,192,64,0.15);
+    }
+    .player-card .card-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: linear-gradient(135deg, #2a5a3a, #3a7a4a);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff; text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .player-card.selected .card-avatar {
+      background: linear-gradient(135deg, #f0c040, #e6a020);
+      color: #1a1a2e;
+    }
+    .player-card .card-best {
+      font-size: 11px; color: #6a8a7a; font-weight: 400; margin-left: 2px;
+    }
+    .player-card.selected .card-best { color: #c0a030; }
+    .player-card .card-delete {
+      width: 18px; height: 18px; border-radius: 50%; border: none;
+      background: rgba(255,80,80,0.15); color: rgba(255,100,100,0.6);
+      font-size: 13px; line-height: 1; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; transition: all 0.2s;
+      flex-shrink: 0; padding: 0;
+    }
+    .player-card .card-delete:hover {
+      background: rgba(255,80,80,0.4); color: #fff;
+    }
+
+    #btn-new-player {
+      padding: 7px 20px; font-size: 13px; font-weight: 600;
+      background: transparent; color: #8ab4a0;
+      border: 1px dashed rgba(138,180,160,0.4); border-radius: 20px;
+      cursor: pointer; transition: all 0.3s; letter-spacing: 1px;
+      text-transform: uppercase; font-family: inherit;
+    }
+    #btn-new-player:hover {
+      border-color: rgba(240,192,64,0.5); color: #f0c040;
+    }
+
+    /* New player inline form */
+    #new-player-form {
+      display: none; align-items: center; gap: 8px; margin-top: 8px;
+    }
+    #new-player-input {
+      width: 180px; padding: 8px 16px; font-size: 15px; font-weight: 600;
+      background: rgba(255,255,255,0.08); color: #fff;
+      border: 2px solid rgba(240,192,64,0.3); border-radius: 24px;
+      text-align: center; outline: none; transition: all 0.3s;
+      letter-spacing: 0.5px; font-family: inherit;
+    }
+    #new-player-input::placeholder { color: rgba(138,180,160,0.5); font-weight: 400; }
+    #new-player-input:focus { border-color: rgba(240,192,64,0.7); box-shadow: 0 0 16px rgba(240,192,64,0.12); }
+    #new-player-input.shake {
+      animation: inputShake 0.4s ease-in-out;
+      border-color: rgba(255,100,100,0.7);
+    }
+    @keyframes inputShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
+    #btn-add-player {
+      padding: 8px 16px; font-size: 13px; font-weight: 700;
+      background: linear-gradient(135deg, #2a5a3a, #3a7a4a); color: #fff;
+      border: none; border-radius: 20px; cursor: pointer; transition: all 0.3s;
+      text-transform: uppercase; letter-spacing: 1px; font-family: inherit;
+    }
+    #btn-add-player:hover { box-shadow: 0 0 15px rgba(58,122,74,0.4); }
+    #btn-cancel-player {
+      padding: 8px 14px; font-size: 13px; font-weight: 600;
+      background: transparent; color: #6a8a7a;
+      border: 1px solid rgba(138,180,160,0.3); border-radius: 20px;
+      cursor: pointer; transition: all 0.3s; font-family: inherit;
+    }
+    #btn-cancel-player:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+
+    #name-hint {
+      font-size: 12px; color: rgba(255,100,100,0.8); margin-top: 6px;
+      height: 16px; transition: opacity 0.3s; text-align: center;
+    }
+    #main-menu button {
+      padding: 16px 60px; font-size: 20px; font-weight: 700; letter-spacing: 2px;
+      background: linear-gradient(135deg, #f0c040, #e6a020); color: #1a1a2e;
+      border: none; border-radius: 50px; cursor: pointer;
+      transition: all 0.3s ease; text-transform: uppercase; margin: 8px;
+    }
+    #main-menu button:hover {
+      transform: scale(1.05); box-shadow: 0 0 30px rgba(240,192,64,0.4);
+    }
+    .menu-info {
+      margin-top: 40px; color: #6a8a7a; font-size: 13px; text-align: center; line-height: 1.8;
+    }
+
+    /* Scoreboard */
+    #scoreboard {
+      position: absolute; top: 0; left: 0; right: 0;
+      display: none; justify-content: center; padding: 12px;
+    }
+    #scoreboard .score-inner {
+      background: rgba(10, 15, 30, 0.88); border: 1px solid rgba(240,192,64,0.3);
+      border-radius: 12px; padding: 10px 30px; display: flex; gap: 30px; align-items: center;
+      backdrop-filter: blur(10px);
+    }
+    .score-item { text-align: center; }
+    .score-label { font-size: 10px; color: #8ab4a0; text-transform: uppercase; letter-spacing: 1px; }
+    .score-value { font-size: 24px; color: #f0c040; font-weight: 700; }
+    .score-value.runs { font-size: 32px; }
+
+    /* Shot Indicator */
+    #shot-indicator {
+      position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+      display: none; text-align: center;
+    }
+    #shot-indicator .shot-text {
+      font-size: 16px; color: #cde0d5; background: rgba(10,15,30,0.8);
+      padding: 8px 24px; border-radius: 20px; border: 1px solid rgba(240,192,64,0.2);
+    }
+
+    /* Controls hint */
+    #controls-hint {
+      position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+      display: none; text-align: center; color: #6a8a7a; font-size: 12px;
+      background: rgba(10,15,30,0.7); padding: 8px 20px; border-radius: 12px;
+    }
+
+    /* Result Screen */
+    #result-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(10, 20, 40, 0.92); backdrop-filter: blur(8px);
+    }
+    #result-screen h2 { font-size: 48px; color: #f0c040; margin-bottom: 10px; }
+    #result-screen .final-score { font-size: 72px; color: #fff; font-weight: 900; margin-bottom: 6px; }
+    #result-screen .score-details { color: #8ab4a0; font-size: 16px; margin-bottom: 40px; }
+    #result-screen button {
+      padding: 14px 50px; font-size: 18px; font-weight: 700;
+      background: linear-gradient(135deg, #f0c040, #e6a020); color: #1a1a2e;
+      border: none; border-radius: 50px; cursor: pointer;
+      transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px;
+      margin: 6px;
+    }
+    #result-screen button:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(240,192,64,0.4); }
+    #result-screen button.secondary {
+      background: transparent; color: #8ab4a0; border: 1px solid rgba(138,180,160,0.4);
+    }
+    #result-screen button.secondary:hover { box-shadow: 0 0 20px rgba(138,180,160,0.2); }
+
+    /* End Game button during match */
+    #btn-end-game {
+      position: absolute; top: 16px; right: 16px; display: none;
+      padding: 8px 22px; font-size: 13px; font-weight: 600;
+      background: rgba(180, 50, 50, 0.7); color: #fff;
+      border: 1px solid rgba(255,100,100,0.4); border-radius: 20px;
+      cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
+      backdrop-filter: blur(6px);
+    }
+    #btn-end-game:hover { background: rgba(200, 60, 60, 0.9); box-shadow: 0 0 15px rgba(200,60,60,0.3); }
+
+    /* Pause button during match */
+    #btn-pause {
+      position: absolute; top: 16px; right: 150px; display: none;
+      padding: 8px 22px; font-size: 13px; font-weight: 600;
+      background: rgba(60, 60, 60, 0.7); color: #fff;
+      border: 1px solid rgba(200,200,200,0.3); border-radius: 20px;
+      cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
+      backdrop-filter: blur(6px);
+    }
+    #btn-pause:hover { background: rgba(80, 80, 80, 0.9); box-shadow: 0 0 15px rgba(200,200,200,0.2); }
+
+    /* Pause overlay */
+    #pause-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 100;
+    }
+    #pause-overlay h2 {
+      font-size: 48px; color: #f0c040; margin-bottom: 30px;
+      text-transform: uppercase; letter-spacing: 6px;
+      text-shadow: 0 0 30px rgba(240,192,64,0.5);
+    }
+    #pause-overlay button {
+      display: block; width: 220px; padding: 14px 0; margin: 8px;
+      font-size: 16px; font-weight: 600; border: none; border-radius: 30px;
+      cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px;
+    }
+    #pause-overlay .btn-resume {
+      background: linear-gradient(135deg, #2a5a3a, #3a7a4a); color: #fff;
+    }
+    #pause-overlay .btn-resume:hover { box-shadow: 0 0 25px rgba(58,122,74,0.5); }
+    #pause-overlay .btn-pause-menu {
+      background: transparent; color: #8ab4a0; border: 1px solid rgba(138,180,160,0.4);
+    }
+    #pause-overlay .btn-pause-menu:hover { box-shadow: 0 0 20px rgba(138,180,160,0.2); }
+
+    /* High Scores on main menu */
+    #high-scores {
+      margin-top: 30px; text-align: center;
+    }
+    #high-scores h3 {
+      font-size: 14px; color: #f0c040; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px;
+    }
+    #high-scores .hs-table {
+      display: inline-block; text-align: left;
+    }
+    #high-scores .hs-row {
+      display: flex; gap: 16px; padding: 3px 0; font-size: 13px; color: #8ab4a0;
+    }
+    #high-scores .hs-rank { width: 20px; color: #f0c040; font-weight: 700; }
+    #high-scores .hs-name { width: 80px; color: #cde0d5; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #high-scores .hs-score { width: 60px; color: #fff; font-weight: 600; }
+    #high-scores .hs-overs { width: 60px; }
+    #high-scores .hs-rr { width: 50px; }
+    #high-scores .hs-empty { color: #4a6a5a; font-size: 13px; }
+
+    /* New high score badge */
+    .new-hs-badge {
+      display: none; font-size: 20px; color: #f0c040; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px;
+      animation: hsPulse 1s ease-in-out infinite alternate;
+    }
+    @keyframes hsPulse {
+      from { text-shadow: 0 0 10px rgba(240,192,64,0.4); }
+      to { text-shadow: 0 0 30px rgba(240,192,64,0.8); transform: scale(1.05); }
+    }
+
+    /* High score on result screen */
+    #result-high-score {
+      color: #6a8a7a; font-size: 14px; margin-bottom: 15px;
+    }
+
+    /* Ball event popup */
+    #ball-event {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      display: none; font-size: 64px; font-weight: 900; color: #f0c040;
+      text-shadow: 0 0 40px rgba(240,192,64,0.6); pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div id="ui-overlay">
+    <!-- Main Menu -->
+    <div id="main-menu">
+      <h1>CRICKET FEVER</h1>
+      <div class="subtitle">3D Cricket Experience</div>
+      <div id="player-select">
+        <div class="section-label">Select Player</div>
+        <div id="player-cards"></div>
+        <button id="btn-new-player">+ New Player</button>
+        <div id="new-player-form">
+          <input type="text" id="new-player-input" placeholder="Name..." maxlength="16" autocomplete="off" />
+          <button id="btn-add-player">Add</button>
+          <button id="btn-cancel-player">Cancel</button>
+        </div>
+        <div id="name-hint">&nbsp;</div>
+      </div>
+      <button id="btn-start-5">Quick Match (5 Overs)</button>
+      <button id="btn-start-10">Quick Match (10 Overs)</button>
+      <div class="menu-info">
+        W — Straight Drive &nbsp;|&nbsp; A — Pull Shot &nbsp;|&nbsp; D — Cut Shot &nbsp;|&nbsp; S — Block<br>
+        Hold SHIFT + Key — Lofted Shot &nbsp;|&nbsp; Arrow Keys — Move in Crease
+      </div>
+      <div id="high-scores">
+        <h3>High Scores</h3>
+        <div class="hs-table" id="hs-table"></div>
+      </div>
+    </div>
+
+    <!-- Scoreboard -->
+    <div id="scoreboard">
+      <div class="score-inner">
+        <div class="score-item"><div class="score-label">Score</div><div class="score-value runs" id="sc-runs">0/0</div></div>
+        <div class="score-item"><div class="score-label">Overs</div><div class="score-value" id="sc-overs">0.0</div></div>
+        <div class="score-item"><div class="score-label">Run Rate</div><div class="score-value" id="sc-rr">0.00</div></div>
+        <div class="score-item"><div class="score-label">Batsman</div><div class="score-value" id="sc-batsman">0 (0)</div></div>
+        <div class="score-item"><div class="score-label">Last Ball</div><div class="score-value" id="sc-last">—</div></div>
+      </div>
+    </div>
+
+    <!-- Shot Indicator -->
+    <div id="shot-indicator"><div class="shot-text" id="shot-text">Straight Drive</div></div>
+
+    <!-- Controls Hint -->
+    <div id="controls-hint">W: Drive &nbsp; A: Pull &nbsp; D: Cut &nbsp; S: Block &nbsp; | &nbsp; SHIFT + Key: Lofted &nbsp; | &nbsp; Arrows: Move</div>
+
+    <!-- Match buttons (visible during match) -->
+    <button id="btn-pause">Pause</button>
+    <button id="btn-end-game">End Game</button>
+
+    <!-- Pause Overlay -->
+    <div id="pause-overlay">
+      <h2>Paused</h2>
+      <button class="btn-resume" id="btn-resume">Resume</button>
+      <button class="btn-pause-menu" id="btn-pause-menu">Main Menu</button>
+    </div>
+
+    <!-- Ball Event Popup -->
+    <div id="ball-event"></div>
+
+    <!-- Result Screen -->
+    <div id="result-screen">
+      <h2>INNINGS OVER</h2>
+      <div class="new-hs-badge" id="new-hs-badge">New High Score!</div>
+      <div class="final-score" id="final-score">0/0</div>
+      <div class="score-details" id="final-details"></div>
+      <div id="result-high-score"></div>
+      <button id="btn-play-again">Play Again</button>
+      <button id="btn-main-menu" class="secondary">Main Menu</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
