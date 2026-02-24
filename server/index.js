@@ -8,9 +8,13 @@ const PORT = process.env.PORT || 3001;
 const app = express();
 const httpServer = createServer(app);
 
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
+  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173'];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173'],
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
   },
 });
@@ -65,6 +69,6 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Cricket Fever server running on port ${PORT}`);
 });
