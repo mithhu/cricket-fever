@@ -25,7 +25,64 @@ export class Fielders {
   constructor(scene) {
     this.scene = scene;
     this.fielders = [];
+    this._difficulty = 'medium';
+    this._shotHistory = [];
+    this._overthrowBall = null;
+    this._overthrowTimer = 0;
     this._buildFielders();
+    this._buildThrowVisual();
+  }
+
+  setDifficulty(difficulty) {
+    this._difficulty = difficulty;
+  }
+
+  recordShotDirection(ballX, ballZ) {
+    this._shotHistory.push({ x: ballX, z: ballZ });
+    if (this._shotHistory.length > 10) this._shotHistory.shift();
+    this._adaptPositions();
+  }
+
+  _adaptPositions() {
+    if (this._shotHistory.length < 3) return;
+
+    // Compute average shot direction from recent history
+    let avgX = 0, avgZ = 0;
+    for (const s of this._shotHistory) { avgX += s.x; avgZ += s.z; }
+    avgX /= this._shotHistory.length;
+    avgZ /= this._shotHistory.length;
+
+    // Shift the 2 nearest fielders' home positions toward the average landing zone
+    const sorted = [...this.fielders].sort((a, b) => {
+      const da = distance2D(a.homeX, a.homeZ, avgX, avgZ);
+      const db = distance2D(b.homeX, b.homeZ, avgX, avgZ);
+      return da - db;
+    });
+
+    for (let i = 0; i < Math.min(2, sorted.length); i++) {
+      const f = sorted[i];
+      const origIdx = FIELD_POSITIONS.findIndex(p => p.name === f.name);
+      if (origIdx < 0) continue;
+      const orig = FIELD_POSITIONS[origIdx];
+      // Shift 30% toward average shot zone
+      f.homeX = orig.x + (avgX - orig.x) * 0.3;
+      f.homeZ = orig.z + (avgZ - orig.z) * 0.3;
+      // Keep within boundary
+      const r = distance2D(f.homeX, f.homeZ, 0, 0);
+      if (r > BOUNDARY_RADIUS - 5) {
+        f.homeX *= (BOUNDARY_RADIUS - 5) / r;
+        f.homeZ *= (BOUNDARY_RADIUS - 5) / r;
+      }
+    }
+  }
+
+  _buildThrowVisual() {
+    const geo = new THREE.SphereGeometry(0.08, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xcc2222 });
+    this._throwBall = new THREE.Mesh(geo, mat);
+    this._throwBall.visible = false;
+    this.scene.add(this._throwBall);
+    this._throwState = null;
   }
 
   _buildFielders() {
@@ -297,12 +354,33 @@ export class Fielders {
     }
   }
 
-  // Check if any fielder can intercept the ball at its current position
+  _getMisfieldChance() {
+    switch (this._difficulty) {
+      case 'easy':   return 0.15;
+      case 'hard':   return 0.03;
+      default:       return 0.08;
+    }
+  }
+
+  _getDropChance() {
+    switch (this._difficulty) {
+      case 'easy':   return 0.25;
+      case 'hard':   return 0.05;
+      default:       return 0.12;
+    }
+  }
+
   checkIntercept(ballPos) {
     for (const f of this.fielders) {
       if (f.state !== 'chasing') continue;
       const d = distance2D(f.group.position.x, f.group.position.z, ballPos.x, ballPos.z);
       if (d < INTERCEPT_RADIUS) {
+        // Chance of misfield — ball slips through
+        if (Math.random() < this._getMisfieldChance()) {
+          f.misfieldTime = 0;
+          f.state = 'misfield';
+          return null;
+        }
         return { fielder: f, distance: d, isDive: false };
       }
       if (d < DIVE_RANGE && f.state === 'chasing') {
@@ -325,21 +403,63 @@ export class Fielders {
     return null;
   }
 
-  // Trigger the catching animation on a specific fielder
   triggerCatch(fielder) {
     fielder.state = 'catching';
     fielder.catchTime = 0;
+    fielder.willDrop = Math.random() < this._getDropChance();
   }
 
-  // Is the catching fielder done with the animation?
   isCatchComplete(fielder) {
+    if (fielder.willDrop && fielder.catchTime >= 0.4) {
+      fielder.state = 'returning';
+      fielder.willDrop = false;
+      return false;
+    }
     return fielder.state === 'catching' && fielder.catchTime >= 0.6;
+  }
+
+  didDropCatch(fielder) {
+    return fielder.willDrop === true && fielder.catchTime >= 0.4;
   }
 
   // Send all fielders back to their home positions
   returnToPositions() {
     for (const f of this.fielders) {
       f.state = 'returning';
+    }
+  }
+
+  startReturnThrow(fielder) {
+    const fx = fielder.group.position.x;
+    const fz = fielder.group.position.z;
+    // Throw toward the bowler's end stumps (0, 0, -PITCH_HALF)
+    this._throwState = {
+      fromX: fx, fromZ: fz, fromY: 1.6,
+      toX: 0, toZ: -PITCH_HALF, toY: 0.8,
+      t: 0,
+      duration: 0.6,
+      overthrow: false,
+    };
+    // Rare overthrow chance (more common on easy difficulty)
+    const overthrowChance = this._difficulty === 'easy' ? 0.12 : this._difficulty === 'hard' ? 0.02 : 0.06;
+    if (Math.random() < overthrowChance) {
+      this._throwState.overthrow = true;
+    }
+    this._throwBall.visible = true;
+  }
+
+  isOverthrow() {
+    return this._throwState && this._throwState.overthrow && this._throwState.t >= 1;
+  }
+
+  getOverthrowRuns() {
+    return Math.random() < 0.5 ? 1 : 2;
+  }
+
+  consumeOverthrow() {
+    if (this._throwState) {
+      this._throwState = null;
+      this._throwBall.visible = false;
     }
   }
 
@@ -355,6 +475,8 @@ export class Fielders {
       } else if (f.state === 'catching') {
         this._updateCatching(f, dt);
         if (ballActive) this._lookAt(f, ballPos.x, ballPos.z);
+      } else if (f.state === 'misfield') {
+        this._updateMisfield(f, dt);
       } else if (f.state === 'returning') {
         this._updateReturning(f, dt);
         this._lookAt(f, f.homeX, f.homeZ);
@@ -367,6 +489,26 @@ export class Fielders {
         } else {
           this._lookAt(f, 0, PITCH_HALF);
         }
+      }
+    }
+
+    // Return throw animation
+    if (this._throwState) {
+      const ts = this._throwState;
+      ts.t += dt / ts.duration;
+      if (ts.t >= 1) {
+        ts.t = 1;
+        if (!ts.overthrow) {
+          this._throwBall.visible = false;
+          this._throwState = null;
+        }
+      }
+      if (ts.t <= 1 && this._throwBall.visible) {
+        const t = ts.t;
+        const x = lerp(ts.fromX, ts.toX, t);
+        const z = lerp(ts.fromZ, ts.toZ, t);
+        const arcY = lerp(ts.fromY, ts.toY, t) + Math.sin(t * Math.PI) * 3;
+        this._throwBall.position.set(x, arcY, z);
       }
     }
   }
@@ -492,6 +634,24 @@ export class Fielders {
   triggerDive(fielder) {
     fielder.state = 'diving';
     fielder.diveTime = 0;
+  }
+
+  _updateMisfield(f, dt) {
+    if (!f.misfieldTime) f.misfieldTime = 0;
+    f.misfieldTime += dt;
+    // Stumble animation: lean forward and reach out
+    const t = Math.min(f.misfieldTime / 0.4, 1.0);
+    f.spineJoint.rotation.x = lerp(0, -0.5, t);
+    f.leftShoulderJoint.rotation.x = lerp(0, -1.5, t);
+    f.rightShoulderJoint.rotation.x = lerp(0, -1.5, t);
+    f.leftKnee.rotation.x = lerp(0, 0.3, t);
+    f.rightKnee.rotation.x = lerp(0, 0.3, t);
+
+    if (f.misfieldTime > 0.8) {
+      f.state = 'chasing';
+      f.misfieldTime = 0;
+      this._resetRunPose(f);
+    }
   }
 
   _updateIdle(f, dt) {

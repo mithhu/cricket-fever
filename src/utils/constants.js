@@ -34,6 +34,8 @@ export const SHOTS = {
   PULL: 'pull',
   CUT: 'cut',
   BLOCK: 'block',
+  SWEEP: 'sweep',
+  LOFTED_DRIVE: 'lofted_drive',
 };
 
 // Game states

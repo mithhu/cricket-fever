@@ -76,6 +76,33 @@ export class SoundManager {
     osc.stop(now + 0.08);
   }
 
+  playEdge() {
+    this._ensureContext();
+    this._resumeContext();
+    const ctx = this._ctx;
+    const now = ctx.currentTime;
+
+    const noise = ctx.createBufferSource();
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.01));
+    }
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 3500;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    noise.connect(filter).connect(gain).connect(this._masterGain);
+    noise.start(now);
+    noise.stop(now + 0.08);
+  }
+
   playBowlRelease() {
     this._ensureContext();
     this._resumeContext();
@@ -271,7 +298,7 @@ export class SoundManager {
 
   stopAmbientCrowd() {
     if (this._ambientSource) {
-      try { this._ambientSource.stop(); } catch (_e) { /* ignore */ }
+      try { this._ambientSource.stop(); } catch (_) { /* ignore */ }
       this._ambientSource = null;
       this._ambientGain = null;
     }

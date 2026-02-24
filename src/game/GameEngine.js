@@ -45,6 +45,12 @@ export class GameEngine {
     this._catchAttempted = false;
 
     this.ballEventEl = document.getElementById('ball-event');
+    this.timingEl = document.getElementById('timing-indicator');
+    this.runCounterEl = document.getElementById('run-counter');
+    this.boundaryFlash = document.getElementById('boundary-flash');
+    this.powerMeter = document.getElementById('power-meter');
+    this.powerFill = document.getElementById('power-fill');
+    this.powerLabel = document.getElementById('power-label');
     this.resultScreen = document.getElementById('result-screen');
     this.finalScoreEl = document.getElementById('final-score');
     this.finalDetailsEl = document.getElementById('final-details');
@@ -118,6 +124,7 @@ export class GameEngine {
     this._playerName = playerName || 'Unknown';
     this._difficulty = difficulty || 'medium';
     this.aiBowler.setDifficulty(this._difficulty);
+    this.fielders.setDifficulty(this._difficulty);
     this.scoreManager = new ScoreManager(overs);
     this.state = GAME_STATE.WAITING;
     this._waitTimer = 0;
@@ -312,6 +319,7 @@ export class GameEngine {
     this.batsman.playShot(trigger.shot);
 
     if (timing === 'miss') {
+      this._showTimingIndicator('miss', 'clean');
       return;
     }
 
@@ -319,9 +327,12 @@ export class GameEngine {
     const reach = this.physics.checkShotReach(trigger.shot, ballRelativeX);
 
     if (reach === 'air') {
+      this._showTimingIndicator(timing, 'air');
       this.commentary.onMiss();
       return;
     }
+
+    this._showTimingIndicator(timing, reach);
 
     let velocity = this.physics.calculateShotVelocity(trigger.shot, trigger.lofted, timing);
     if (velocity) {
@@ -329,9 +340,11 @@ export class GameEngine {
         velocity.multiplyScalar(0.25);
         velocity.x += (Math.random() - 0.5) * 4;
         velocity.y = Math.min(velocity.y, 2);
+        this.sound.playEdge();
       }
       this.ball.hitByBat(velocity);
-      this.sound.playBatCrack();
+      if (reach !== 'edge') this.sound.playBatCrack();
+      this._showPowerMeter(velocity);
       this._shotResult = {
         type: 'hit',
         shot: trigger.shot,
@@ -350,6 +363,7 @@ export class GameEngine {
     // Send fielders chasing once after ball is hit
     if (!this._chaseSent && this.ball.hasBeenHit) {
       this.fielders.chaseBall(this.ball.position, this.ball.velocity);
+      this.fielders.recordShotDirection(this.ball.velocity.x * 2, this.ball.velocity.z * 2);
       this._chaseSent = true;
     }
 
@@ -365,12 +379,19 @@ export class GameEngine {
 
     // Catch logic: ball must literally fall into a fielder's hands
     if (this._catchingFielder) {
-      // Catching animation in progress — ball sticks to fielder's hands
       const cf = this._catchingFielder;
       this.ball.position.set(cf.group.position.x, cf.group.position.y + 1.6, cf.group.position.z);
       this.ball.mesh.position.copy(this.ball.position);
       this.ball.velocity.set(0, 0, 0);
-      if (this.fielders.isCatchComplete(cf)) {
+      if (this.fielders.didDropCatch(cf)) {
+        this._catchingFielder = null;
+        this._showBallEvent('DROPPED!');
+        this.commentary.onDrop && this.commentary.onDrop();
+        this.ball.velocity.set((Math.random() - 0.5) * 3, 1, (Math.random() - 0.5) * 3);
+        this.ball.active = true;
+        this.ball.settled = false;
+        cf.willDrop = false;
+      } else if (this.fielders.isCatchComplete(cf)) {
         this._catchingFielder = null;
         this._handleWicket('caught');
         return;
@@ -401,15 +422,26 @@ export class GameEngine {
         if (intercept.isDive) {
           this.fielders.triggerDive(intercept.fielder);
         }
-        // Ball is stopped by the fielder
         this.ball.velocity.set(0, 0, 0);
         this.ball.settled = true;
+        this.fielders.startReturnThrow(intercept.fielder);
       }
+    }
+
+    // Check for overthrow
+    if (this.fielders.isOverthrow()) {
+      const extra = this.fielders.getOverthrowRuns();
+      this.fielders.consumeOverthrow();
+      this.scoreManager.addRuns(extra);
+      this.scoreboard.update(this.scoreManager);
+      this._showBallEvent(`OVERTHROW! +${extra}`);
+      this._showRunCounter(extra);
+      this.commentary.onRuns(extra);
     }
 
     // Ball settled on field
     if (this.ball.settled || this._ballSettledTimeout(dt)) {
-      const runs = this.physics.estimateRuns(this.ball);
+      const runs = this.physics.estimateRuns(this.ball, this.fielders);
       this._handleRuns(runs);
     }
   }
@@ -428,6 +460,8 @@ export class GameEngine {
     this.scoreManager.addBall();
     this.scoreboard.update(this.scoreManager);
     this._showBallEvent(runs === 6 ? 'SIX!' : 'FOUR!');
+    this._showRunCounter(runs);
+    this._showBoundaryFlash(runs === 6);
     this.sound.playBoundaryCheer(runs === 6);
     if (runs === 6) this.commentary.onSix(); else this.commentary.onFour();
     this._triggerSlowMo(runs === 6 ? 1.5 : 1.0);
@@ -445,6 +479,7 @@ export class GameEngine {
       this.commentary.onDot();
     } else {
       this._showBallEvent(`${runs} run${runs > 1 ? 's' : ''}`);
+      this._showRunCounter(runs);
       this.commentary.onRuns(runs);
     }
     this._ballSettleTimer = 0;
@@ -562,5 +597,62 @@ export class GameEngine {
     this.ballEventEl.textContent = text;
     this.ballEventEl.style.display = 'block';
     this._eventPopupTimer = 1.5;
+  }
+
+  _showBoundaryFlash(isSix) {
+    this.boundaryFlash.className = isSix ? 'six' : 'four';
+    this.boundaryFlash.style.opacity = '1';
+    setTimeout(() => { this.boundaryFlash.style.opacity = '0'; }, 300);
+  }
+
+  _showPowerMeter(velocity) {
+    if (!velocity) return;
+    const speed = velocity.length();
+    // Max around 45 m/s
+    const pct = Math.min(speed / 45, 1) * 100;
+    this.powerMeter.style.display = 'block';
+    this.powerLabel.style.display = 'block';
+    this.powerFill.style.height = `${pct}%`;
+    if (pct > 75) {
+      this.powerFill.style.background = 'linear-gradient(to top, #ff4444, #ff8844)';
+    } else if (pct > 40) {
+      this.powerFill.style.background = 'linear-gradient(to top, #ffaa33, #ffdd44)';
+    } else {
+      this.powerFill.style.background = 'linear-gradient(to top, #44aa66, #88dd88)';
+    }
+    clearTimeout(this._powerTimeout);
+    this._powerTimeout = setTimeout(() => {
+      this.powerMeter.style.display = 'none';
+      this.powerLabel.style.display = 'none';
+    }, 2500);
+  }
+
+  _showTimingIndicator(timing, reach) {
+    const labels = {
+      perfect: 'Perfect!',
+      good: 'Good',
+      early_late: 'Mistimed',
+      miss: 'Missed!',
+    };
+    const label = reach === 'edge' ? 'Edge!' : (labels[timing] || '');
+    const cssClass = reach === 'edge' ? 'edge' : timing;
+
+    this.timingEl.textContent = label;
+    this.timingEl.className = cssClass;
+    this.timingEl.style.display = 'block';
+    this.timingEl.style.animation = 'none';
+    void this.timingEl.offsetHeight;
+    this.timingEl.style.animation = '';
+    setTimeout(() => { this.timingEl.style.display = 'none'; }, 700);
+  }
+
+  _showRunCounter(runs) {
+    if (runs <= 0) return;
+    this.runCounterEl.textContent = `+${runs}`;
+    this.runCounterEl.style.display = 'block';
+    this.runCounterEl.style.animation = 'none';
+    void this.runCounterEl.offsetHeight;
+    this.runCounterEl.style.animation = '';
+    setTimeout(() => { this.runCounterEl.style.display = 'none'; }, 1300);
   }
 }

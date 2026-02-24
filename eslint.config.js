@@ -14,6 +14,8 @@ export default [
         navigator: 'readonly',
         AudioContext: 'readonly',
         OscillatorNode: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
       },
     },
     rules: {

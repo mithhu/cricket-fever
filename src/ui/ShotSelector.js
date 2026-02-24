@@ -5,6 +5,8 @@ const SHOT_NAMES = {
   [SHOTS.PULL]: 'Pull / Hook',
   [SHOTS.CUT]: 'Cut / Cover Drive',
   [SHOTS.BLOCK]: 'Defensive Block',
+  [SHOTS.SWEEP]: 'Sweep Shot',
+  [SHOTS.LOFTED_DRIVE]: 'Lofted Drive',
 };
 
 export class ShotSelector {

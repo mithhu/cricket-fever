@@ -53,6 +53,18 @@ export class InputManager {
         this._lofted = lofted;
         e.preventDefault();
         break;
+      case 'KeyQ':
+        this._shotDirection = SHOTS.SWEEP;
+        this._shotTriggered = true;
+        this._lofted = lofted;
+        e.preventDefault();
+        break;
+      case 'KeyE':
+        this._shotDirection = SHOTS.LOFTED_DRIVE;
+        this._shotTriggered = true;
+        this._lofted = true;
+        e.preventDefault();
+        break;
       case 'Space':
         this._shotTriggered = true;
         this._lofted = lofted;

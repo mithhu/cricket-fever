@@ -18,12 +18,20 @@ export class PhysicsEngine {
 
   calculateTimingQuality(ball) {
     const zDist = Math.abs(ball.position.z - BATSMAN_Z);
+    const ballSpeed = ball.velocity.length();
 
-    if (zDist < 1.5) {
+    // Tighter windows for faster deliveries (base thresholds at ~15 m/s)
+    const speedFactor = Math.max(0.6, 15 / Math.max(ballSpeed, 8));
+
+    const perfectThreshold = 1.5 * speedFactor;
+    const goodThreshold = 3.0 * speedFactor;
+    const earlyLateThreshold = 5.0 * speedFactor;
+
+    if (zDist < perfectThreshold) {
       this._timingQuality = 'perfect';
-    } else if (zDist < 3.0) {
+    } else if (zDist < goodThreshold) {
       this._timingQuality = 'good';
-    } else if (zDist < 5.0) {
+    } else if (zDist < earlyLateThreshold) {
       this._timingQuality = 'early_late';
     } else {
       this._timingQuality = 'miss';
@@ -42,18 +50,27 @@ export class PhysicsEngine {
 
     switch (shotType) {
       case SHOTS.PULL:
-        // Pull is a leg-side shot (-X) — can't reach off-side balls (+X)
         if (offset > 0.6) return 'air';
         if (offset > 0.25) return 'edge';
         return 'clean';
 
       case SHOTS.CUT:
-        // Cut is an off-side shot (+X) — can't reach leg-side balls (-X)
         if (offset < -0.6) return 'air';
         if (offset < -0.25) return 'edge';
         return 'clean';
 
       case SHOTS.DRIVE:
+        if (Math.abs(offset) > 0.8) return 'edge';
+        return 'clean';
+
+      case SHOTS.SWEEP:
+        // Sweep goes to leg side — similar reach to pull but on front foot
+        if (offset > 0.7) return 'air';
+        if (offset > 0.3) return 'edge';
+        return 'clean';
+
+      case SHOTS.LOFTED_DRIVE:
+        // Same reach as drive but always aerial
         if (Math.abs(offset) > 0.8) return 'edge';
         return 'clean';
 
@@ -105,9 +122,24 @@ export class PhysicsEngine {
         vy = lofted ? randRange(6, 12) : randRange(1, 4);
         break;
       }
+      case SHOTS.SWEEP: {
+        // Sweep: low cross-bat to leg side, fast along the ground
+        const speed = randRange(18, 32) * qualityMultiplier;
+        vx = -speed * randRange(0.7, 1.0);
+        vz = speed * randRange(-0.3, 0.2);
+        vy = lofted ? randRange(6, 12) : randRange(1, 3);
+        break;
+      }
+      case SHOTS.LOFTED_DRIVE: {
+        // Lofted drive: always aerial, straight over bowler's head
+        const speed = randRange(24, 40) * qualityMultiplier;
+        vx = randRange(-3, 3);
+        vz = -speed;
+        vy = randRange(10, 18);
+        break;
+      }
       case SHOTS.BLOCK:
       default: {
-        // Block: soft shot, drops in front toward bowler (-Z)
         const speed = randRange(3, 8) * qualityMultiplier;
         vx = randRange(-1, 1);
         vz = -speed;
@@ -132,6 +164,7 @@ export class PhysicsEngine {
 
   checkCaught(shotType, timingQuality, lofted) {
     if (shotType === SHOTS.BLOCK) return false;
+    if (shotType === SHOTS.LOFTED_DRIVE) lofted = true;
 
     let catchChance = 0;
 
@@ -146,14 +179,39 @@ export class PhysicsEngine {
     return Math.random() < catchChance;
   }
 
-  estimateRuns(ball) {
+  estimateRuns(ball, fielders) {
     if (ball.isSix()) return 6;
     if (ball.isFour()) return 4;
 
-    const dist = ball.getDistanceFromCenter();
-    if (dist < 10) return 0;
-    if (dist < 25) return 1;
-    if (dist < 40) return 2;
-    return 3;
+    const bx = ball.position.x;
+    const bz = ball.position.z;
+    const distFromCenter = ball.getDistanceFromCenter();
+
+    if (distFromCenter < 5) return 0;
+
+    if (!fielders) {
+      if (distFromCenter < 25) return 1;
+      if (distFromCenter < 40) return 2;
+      return 3;
+    }
+
+    // Find nearest fielder to the ball's settled position
+    const { dist: nearestDist } = fielders.getNearestFielder(bx, bz);
+
+    // Estimate time for fielder to reach ball (sprint ~8 m/s)
+    const fielderTime = nearestDist / 8;
+
+    // Time per run is ~2.5 seconds for a single between wickets
+    const timePerRun = 2.5;
+
+    // Runs = how many can be completed before fielder reaches the ball
+    // Subtract ~1s for the throw back
+    const availableTime = Math.max(0, fielderTime - 1.0);
+    let runs = Math.floor(availableTime / timePerRun);
+
+    // Bonus: ball in a gap (nearest fielder far away) gets extra value
+    if (nearestDist > 30 && distFromCenter > 35) runs = Math.max(runs, 3);
+
+    return clamp(runs, 0, 3);
   }
 }

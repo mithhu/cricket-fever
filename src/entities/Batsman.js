@@ -563,6 +563,94 @@ export class Batsman {
           },
         };
 
+      case SHOTS.SWEEP:
+        return {
+          step: {
+            lHipJointX: -0.6, lHipJointZ: R.lHipJointZ, lKneeX: 0.8,
+            rHipJointX: -0.1, rHipJointZ: R.rHipJointZ, rKneeX: 0.3,
+            hipY: -0.1, hipX: 0, spineX: -0.15, spineY: -0.1, spineZ: 0,
+            neckY: R.neckY, neckX: -0.05,
+            rShX: -0.5, rShY: 0, rShZ: -0.35, rElX: -0.8,
+            lShX: -0.5, lShY: 0, lShZ: 0.1, lElX: -1.0,
+            batX: 0.3, batY: R.batY, batZ: 0,
+            groupZ: -0.25,
+          },
+          backlift: {
+            lHipJointX: -0.7, lHipJointZ: R.lHipJointZ, lKneeX: 1.0,
+            rHipJointX: -0.15, rHipJointZ: R.rHipJointZ, rKneeX: 0.35,
+            hipY: -0.15, hipX: 0, spineX: 0.05, spineY: -0.1, spineZ: -0.05,
+            neckY: R.neckY, neckX: 0,
+            rShX: -1.3, rShY: 0, rShZ: -0.3, rElX: -0.8,
+            lShX: -1.3, lShY: 0, lShZ: 0.1, lElX: -0.9,
+            batX: 0.5, batY: R.batY, batZ: 0,
+            groupZ: -0.25,
+          },
+          swing: {
+            lHipJointX: -0.8, lHipJointZ: R.lHipJointZ, lKneeX: 1.2,
+            rHipJointX: -0.2, rHipJointZ: R.rHipJointZ, rKneeX: 0.4,
+            hipY: -0.4, hipX: 0.05, spineX: -0.2, spineY: -0.35, spineZ: -0.05,
+            neckY: R.neckY * 0.5, neckX: 0,
+            rShX: -0.1, rShY: -0.2, rShZ: -0.3, rElX: -0.25,
+            lShX: -0.1, lShY: 0.2, lShZ: 0.1, lElX: -0.4,
+            batX: -0.2, batY: R.batY + 0.5, batZ: -0.3,
+            groupZ: -0.25,
+          },
+          followThrough: {
+            lHipJointX: -0.8, lHipJointZ: R.lHipJointZ, lKneeX: 1.2,
+            rHipJointX: -0.2, rHipJointZ: R.rHipJointZ, rKneeX: 0.4,
+            hipY: -0.5, hipX: 0.05, spineX: -0.2, spineY: -0.5, spineZ: -0.08,
+            neckY: R.neckY * 0.3, neckX: -0.05,
+            rShX: 0.1, rShY: -0.3, rShZ: -0.25, rElX: -0.3,
+            lShX: 0.1, lShY: 0.3, lShZ: 0.1, lElX: -0.45,
+            batX: -0.4, batY: R.batY + 0.7, batZ: -0.5,
+            groupZ: -0.25,
+          },
+        };
+
+      case SHOTS.LOFTED_DRIVE:
+        return {
+          step: {
+            lHipJointX: -0.4, lHipJointZ: R.lHipJointZ, lKneeX: 0.3,
+            rHipJointX: 0.1, rHipJointZ: R.rHipJointZ, rKneeX: 0.18,
+            hipY: 0.05, hipX: 0, spineX: -0.1, spineY: 0.05, spineZ: -0.04,
+            neckY: R.neckY, neckX: -0.08,
+            rShX: -0.5, rShY: 0, rShZ: -0.35, rElX: -0.8,
+            lShX: -0.5, lShY: 0, lShZ: 0.1, lElX: -1.0,
+            batX: 0.4, batY: R.batY, batZ: 0,
+            groupZ: -0.35,
+          },
+          backlift: {
+            lHipJointX: -0.45, lHipJointZ: R.lHipJointZ, lKneeX: 0.35,
+            rHipJointX: 0.15, rHipJointZ: R.rHipJointZ, rKneeX: 0.18,
+            hipY: 0.05, hipX: 0, spineX: 0.15, spineY: 0, spineZ: -0.06,
+            neckY: R.neckY, neckX: 0,
+            rShX: -1.5, rShY: 0, rShZ: -0.3, rElX: -0.9,
+            lShX: -1.5, lShY: 0, lShZ: 0.1, lElX: -1.0,
+            batX: 0.7, batY: R.batY, batZ: 0,
+            groupZ: -0.35,
+          },
+          swing: {
+            lHipJointX: -0.6, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
+            rHipJointX: 0.2, rHipJointZ: R.rHipJointZ, rKneeX: 0.3,
+            hipY: 0.1, hipX: -0.1, spineX: -0.35, spineY: 0.1, spineZ: 0,
+            neckY: R.neckY * 0.7, neckX: -0.15,
+            rShX: 0.2, rShY: 0, rShZ: -0.35, rElX: -0.15,
+            lShX: 0.2, lShY: 0, lShZ: 0.1, lElX: -0.3,
+            batX: -0.5, batY: R.batY, batZ: 0,
+            groupZ: -0.45,
+          },
+          followThrough: {
+            lHipJointX: -0.65, lHipJointZ: R.lHipJointZ, lKneeX: 0.15,
+            rHipJointX: 0.25, rHipJointZ: R.rHipJointZ, rKneeX: 0.35,
+            hipY: 0.15, hipX: -0.1, spineX: -0.4, spineY: 0.15, spineZ: 0.03,
+            neckY: R.neckY * 0.5, neckX: -0.2,
+            rShX: 0.6, rShY: 0, rShZ: -0.3, rElX: -0.2,
+            lShX: 0.6, lShY: 0, lShZ: 0.1, lElX: -0.35,
+            batX: -0.8, batY: R.batY, batZ: 0,
+            groupZ: -0.5,
+          },
+        };
+
       case SHOTS.BLOCK:
       default:
         return {

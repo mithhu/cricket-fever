@@ -5,6 +5,8 @@ const SHOT_MAP = {
   pull: SHOTS.PULL,
   cut: SHOTS.CUT,
   block: SHOTS.BLOCK,
+  sweep: SHOTS.SWEEP,
+  lofted_drive: SHOTS.LOFTED_DRIVE,
 };
 
 export class TouchController {
@@ -87,8 +89,8 @@ export class TouchController {
   }
 
   _bindShots() {
-    const btns = this.controlsEl.querySelectorAll('.shot-btn');
-    btns.forEach((btn) => {
+    const allBtns = this.controlsEl.querySelectorAll('.shot-btn, .shot-btn-extra');
+    allBtns.forEach((btn) => {
       btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         btn.classList.add('pressed');
@@ -96,7 +98,7 @@ export class TouchController {
         if (shot) {
           this.input._shotDirection = shot;
           this.input._shotTriggered = true;
-          this.input._lofted = this._lofted;
+          this.input._lofted = shot === SHOTS.LOFTED_DRIVE ? true : this._lofted;
         }
       }, { passive: false });
 
