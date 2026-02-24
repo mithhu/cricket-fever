@@ -234,14 +234,12 @@ export class Batsman {
     this.leftShoulderJoint.add(this.leftElbowJoint);
 
     const lForearmGeo = new THREE.CylinderGeometry(0.04, 0.035, 0.25, 8);
-    const lForearm = new THREE.Mesh(lForearmGeo, skin);
-    lForearm.position.y = -0.125;
-    this.leftElbowJoint.add(lForearm);
+    this.leftForearm = new THREE.Mesh(lForearmGeo, skin);
+    this.leftForearm.position.y = -0.125;
+    this.leftElbowJoint.add(this.leftForearm);
 
     const lGloveGeo = new THREE.SphereGeometry(0.045, 8, 8);
     this.leftGlove = new THREE.Mesh(lGloveGeo, gloveMat);
-    this.leftGlove.position.set(0, -0.27, 0);
-    this.leftElbowJoint.add(this.leftGlove);
 
     // ── RIGHT ARM (bat arm) ──
     this.rightShoulderJoint = new THREE.Group();
@@ -330,6 +328,10 @@ export class Batsman {
     this.batGroup.position.set(0, -0.27, 0);
     this.rightElbowJoint.add(this.batGroup);
 
+    // Left glove (top hand) parented to bat so it always stays on the handle
+    this.leftGlove.position.set(0, 0.2, 0);
+    this.batGroup.add(this.leftGlove);
+
     // ── Right-handed batting stance (side-on guard position) ──
     // +PI/2 rotation: model's +X (right side) faces -Z world (toward bowler).
     // From the camera (behind bowler looking +Z), we see the batsman's
@@ -340,15 +342,15 @@ export class Batsman {
     this.spineJoint.rotation.x = -0.06;
     this.spineJoint.rotation.z = -0.04;
 
-    // Front arm (left) — top hand on bat, shoulder forward, elbow bent
-    this.leftShoulderJoint.rotation.x = -0.5;
-    this.leftShoulderJoint.rotation.z = 0.25;
-    this.leftElbowJoint.rotation.x = -0.9;
-
-    // Back arm (right) — bottom hand, holds bat handle at waist
+    // Back arm (right) — bottom hand on bat handle, arm extends outward to hold bat
     this.rightShoulderJoint.rotation.x = -0.45;
-    this.rightShoulderJoint.rotation.z = -0.2;
-    this.rightElbowJoint.rotation.x = -0.95;
+    this.rightShoulderJoint.rotation.z = -0.35;
+    this.rightElbowJoint.rotation.x = -0.9;
+
+    // Front arm (left) — top hand on bat, reaches across body toward bat handle
+    this.leftShoulderJoint.rotation.x = -0.55;
+    this.leftShoulderJoint.rotation.z = 0.1;
+    this.leftElbowJoint.rotation.x = -1.2;
 
     // Bat hangs straight down from hands, blade face toward bowler
     this.batGroup.rotation.x = 0.15;
@@ -422,51 +424,53 @@ export class Batsman {
   }
 
   _getShotKeyframes(shot) {
-    // With group.rotation.y = +PI/2, model's +X faces -Z world (bowler).
-    // hipY / spineY signs are flipped vs the old -PI/2 orientation.
+    // Swing mechanics: shoulder pitches the arm forward, elbow STRAIGHTENS through
+    // contact so the bat extends toward the bowler. Bent elbow = bat behind body.
+    // rElX: -0.9 = bent (backlift), -0.2 = nearly straight (contact), -0.4 = follow-through
+    // batX kept small — the swing is driven by the arm, not independent bat rotation.
     const R = this._restPose;
 
     switch (shot) {
       case SHOTS.DRIVE:
         return {
           step: {
-            lHipJointX: -0.5, lHipJointZ: R.lHipJointZ, lKneeX: 0.25,
+            lHipJointX: -0.45, lHipJointZ: R.lHipJointZ, lKneeX: 0.3,
             rHipJointX: 0.1, rHipJointZ: R.rHipJointZ, rKneeX: 0.18,
-            hipY: 0, hipX: 0, spineX: -0.1, spineY: 0, spineZ: -0.06,
+            hipY: 0.05, hipX: 0, spineX: -0.08, spineY: 0.05, spineZ: -0.04,
             neckY: R.neckY, neckX: -0.05,
-            rShX: -0.4, rShY: 0, rShZ: -0.2, rElX: -1.2,
-            lShX: -0.3, lShY: 0, lShZ: 0.3, lElX: -1.2,
-            batX: 0.6, batY: R.batY, batZ: 0.1,
+            rShX: -0.5, rShY: 0, rShZ: -0.35, rElX: -0.8,
+            lShX: -0.5, lShY: 0, lShZ: 0.1, lElX: -1.0,
+            batX: 0.3, batY: R.batY, batZ: 0,
             groupZ: -0.3,
           },
           backlift: {
-            lHipJointX: -0.55, lHipJointZ: R.lHipJointZ, lKneeX: 0.3,
+            lHipJointX: -0.5, lHipJointZ: R.lHipJointZ, lKneeX: 0.35,
             rHipJointX: 0.15, rHipJointZ: R.rHipJointZ, rKneeX: 0.18,
-            hipY: 0, hipX: 0, spineX: 0.12, spineY: -0.05, spineZ: -0.08,
+            hipY: 0.05, hipX: 0, spineX: 0.1, spineY: 0, spineZ: -0.06,
             neckY: R.neckY, neckX: 0,
-            rShX: -1.8, rShY: 0, rShZ: -0.15, rElX: -0.3,
-            lShX: -1.6, lShY: 0, lShZ: 0.35, lElX: -0.2,
-            batX: 2.0, batY: R.batY, batZ: 0,
+            rShX: -1.4, rShY: 0, rShZ: -0.3, rElX: -0.9,
+            lShX: -1.4, lShY: 0, lShZ: 0.1, lElX: -1.0,
+            batX: 0.6, batY: R.batY, batZ: 0,
             groupZ: -0.35,
           },
           swing: {
-            lHipJointX: -0.7, lHipJointZ: R.lHipJointZ, lKneeX: 0.15,
+            lHipJointX: -0.65, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
             rHipJointX: 0.2, rHipJointZ: R.rHipJointZ, rKneeX: 0.3,
-            hipY: 0.15, hipX: -0.05, spineX: -0.3, spineY: 0.15, spineZ: 0,
-            neckY: R.neckY * 0.7, neckX: -0.1,
-            rShX: -0.1, rShY: 0, rShZ: -0.4, rElX: -1.3,
-            lShX: -0.15, lShY: 0, lShZ: 0.1, lElX: -1.1,
-            batX: -1.4, batY: R.batY, batZ: 0.1,
+            hipY: 0.15, hipX: -0.05, spineX: -0.2, spineY: 0.1, spineZ: 0,
+            neckY: R.neckY * 0.8, neckX: -0.08,
+            rShX: 0.1, rShY: 0, rShZ: -0.35, rElX: -0.2,
+            lShX: 0.1, lShY: 0, lShZ: 0.1, lElX: -0.4,
+            batX: -0.3, batY: R.batY, batZ: 0,
             groupZ: -0.45,
           },
           followThrough: {
-            lHipJointX: -0.75, lHipJointZ: R.lHipJointZ, lKneeX: 0.1,
+            lHipJointX: -0.7, lHipJointZ: R.lHipJointZ, lKneeX: 0.15,
             rHipJointX: 0.25, rHipJointZ: R.rHipJointZ, rKneeX: 0.35,
-            hipY: 0.2, hipX: -0.05, spineX: -0.35, spineY: 0.2, spineZ: 0.05,
-            neckY: R.neckY * 0.5, neckX: -0.15,
-            rShX: 0.4, rShY: 0, rShZ: -0.3, rElX: -1.4,
-            lShX: 0.3, lShY: 0, lShZ: 0, lElX: -1.2,
-            batX: -2.4, batY: R.batY, batZ: 0.15,
+            hipY: 0.2, hipX: -0.05, spineX: -0.3, spineY: 0.15, spineZ: 0.03,
+            neckY: R.neckY * 0.6, neckX: -0.12,
+            rShX: 0.4, rShY: 0, rShZ: -0.3, rElX: -0.35,
+            lShX: 0.4, lShY: 0, lShZ: 0.1, lElX: -0.5,
+            batX: -0.5, batY: R.batY, batZ: 0,
             groupZ: -0.5,
           },
         };
@@ -474,44 +478,44 @@ export class Batsman {
       case SHOTS.PULL:
         return {
           step: {
-            lHipJointX: 0.1, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
-            rHipJointX: -0.3, rHipJointZ: R.rHipJointZ, rKneeX: 0.4,
-            hipY: -0.2, hipX: 0, spineX: -0.05, spineY: -0.1, spineZ: 0,
+            lHipJointX: 0.05, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
+            rHipJointX: -0.25, rHipJointZ: R.rHipJointZ, rKneeX: 0.35,
+            hipY: -0.15, hipX: 0, spineX: -0.05, spineY: -0.1, spineZ: 0,
             neckY: R.neckY, neckX: 0,
-            rShX: -0.3, rShY: 0, rShZ: -0.2, rElX: -1.2,
-            lShX: -0.25, lShY: 0, lShZ: 0.25, lElX: -1.1,
-            batX: 0.4, batY: R.batY, batZ: 0.15,
-            groupZ: 0.2,
+            rShX: -0.5, rShY: 0, rShZ: -0.35, rElX: -0.8,
+            lShX: -0.5, lShY: 0, lShZ: 0.1, lElX: -1.0,
+            batX: 0.3, batY: R.batY, batZ: 0,
+            groupZ: 0.15,
           },
           backlift: {
             lHipJointX: 0.05, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
-            rHipJointX: -0.35, rHipJointZ: R.rHipJointZ, rKneeX: 0.5,
-            hipY: -0.3, hipX: 0, spineX: 0.15, spineY: -0.2, spineZ: -0.1,
+            rHipJointX: -0.3, rHipJointZ: R.rHipJointZ, rKneeX: 0.45,
+            hipY: -0.25, hipX: 0, spineX: 0.12, spineY: -0.15, spineZ: -0.08,
             neckY: R.neckY, neckX: 0.05,
-            rShX: -2.2, rShY: -0.2, rShZ: 0.1, rElX: -0.3,
-            lShX: -2.0, lShY: -0.15, lShZ: 0.15, lElX: -0.2,
-            batX: 2.2, batY: R.batY + 0.3, batZ: 0.3,
-            groupZ: 0.2,
+            rShX: -1.5, rShY: -0.15, rShZ: -0.3, rElX: -0.85,
+            lShX: -1.5, lShY: 0.15, lShZ: 0.1, lElX: -1.0,
+            batX: 0.5, batY: R.batY + 0.2, batZ: 0,
+            groupZ: 0.15,
           },
           swing: {
             lHipJointX: 0, lHipJointZ: R.lHipJointZ, lKneeX: 0.3,
-            rHipJointX: -0.15, rHipJointZ: R.rHipJointZ, rKneeX: 0.25,
-            hipY: -0.5, hipX: 0.05, spineX: -0.1, spineY: -0.5, spineZ: -0.1,
-            neckY: R.neckY * 0.3, neckX: 0,
-            rShX: -0.2, rShY: -0.4, rShZ: 0.35, rElX: -0.7,
-            lShX: -0.3, lShY: -0.3, lShZ: -0.3, lElX: -0.5,
-            batX: -0.6, batY: R.batY + 0.8, batZ: -0.9,
-            groupZ: 0.2,
+            rHipJointX: -0.15, rHipJointZ: R.rHipJointZ, rKneeX: 0.3,
+            hipY: -0.5, hipX: 0.05, spineX: -0.1, spineY: -0.45, spineZ: -0.08,
+            neckY: R.neckY * 0.4, neckX: 0,
+            rShX: -0.2, rShY: -0.3, rShZ: -0.3, rElX: -0.25,
+            lShX: -0.2, lShY: 0.3, lShZ: 0.1, lElX: -0.4,
+            batX: -0.2, batY: R.batY + 0.5, batZ: -0.3,
+            groupZ: 0.15,
           },
           followThrough: {
             lHipJointX: 0, lHipJointZ: R.lHipJointZ, lKneeX: 0.35,
-            rHipJointX: -0.05, rHipJointZ: R.rHipJointZ, rKneeX: 0.2,
-            hipY: -0.6, hipX: 0.05, spineX: -0.1, spineY: -0.7, spineZ: -0.15,
-            neckY: R.neckY * 0.1, neckX: -0.05,
-            rShX: 0.2, rShY: -0.5, rShZ: 0.5, rElX: -0.5,
-            lShX: 0.1, lShY: -0.35, lShZ: -0.5, lElX: -0.4,
-            batX: -1.6, batY: R.batY + 1.2, batZ: -1.3,
-            groupZ: 0.2,
+            rHipJointX: -0.05, rHipJointZ: R.rHipJointZ, rKneeX: 0.25,
+            hipY: -0.6, hipX: 0.05, spineX: -0.1, spineY: -0.6, spineZ: -0.1,
+            neckY: R.neckY * 0.2, neckX: -0.05,
+            rShX: 0.1, rShY: -0.4, rShZ: -0.25, rElX: -0.3,
+            lShX: 0.1, lShY: 0.4, lShZ: 0.1, lElX: -0.45,
+            batX: -0.4, batY: R.batY + 0.8, batZ: -0.5,
+            groupZ: 0.15,
           },
         };
 
@@ -519,42 +523,42 @@ export class Batsman {
         return {
           step: {
             lHipJointX: 0.05, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
-            rHipJointX: -0.2, rHipJointZ: R.rHipJointZ, rKneeX: 0.35,
+            rHipJointX: -0.2, rHipJointZ: R.rHipJointZ, rKneeX: 0.3,
             hipY: 0.1, hipX: 0, spineX: -0.05, spineY: 0.1, spineZ: 0,
             neckY: R.neckY, neckX: 0,
-            rShX: -0.3, rShY: 0, rShZ: -0.25, rElX: -1.2,
-            lShX: -0.25, lShY: 0, lShZ: 0.35, lElX: -1.1,
-            batX: 0.4, batY: R.batY, batZ: -0.1,
+            rShX: -0.5, rShY: 0.05, rShZ: -0.35, rElX: -0.8,
+            lShX: -0.5, lShY: -0.05, lShZ: 0.1, lElX: -1.0,
+            batX: 0.3, batY: R.batY, batZ: 0,
             groupZ: 0.1,
           },
           backlift: {
             lHipJointX: 0, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
             rHipJointX: -0.25, rHipJointZ: R.rHipJointZ, rKneeX: 0.4,
-            hipY: 0.1, hipX: 0, spineX: 0.12, spineY: 0.15, spineZ: 0.05,
+            hipY: 0.1, hipX: 0, spineX: 0.1, spineY: 0.12, spineZ: 0.04,
             neckY: R.neckY, neckX: 0,
-            rShX: -2.0, rShY: 0.15, rShZ: -0.3, rElX: -0.25,
-            lShX: -1.8, lShY: 0.1, lShZ: 0.5, lElX: -0.15,
-            batX: 2.0, batY: R.batY - 0.3, batZ: -0.2,
+            rShX: -1.5, rShY: 0.15, rShZ: -0.3, rElX: -0.85,
+            lShX: -1.5, lShY: -0.15, lShZ: 0.1, lElX: -1.0,
+            batX: 0.5, batY: R.batY - 0.2, batZ: 0,
             groupZ: 0.1,
           },
           swing: {
             lHipJointX: 0, lHipJointZ: R.lHipJointZ, lKneeX: 0.15,
             rHipJointX: -0.1, rHipJointZ: R.rHipJointZ, rKneeX: 0.45,
-            hipY: 0.25, hipX: 0, spineX: -0.15, spineY: 0.4, spineZ: 0.1,
-            neckY: R.neckY * 1.2, neckX: -0.05,
-            rShX: -0.3, rShY: 0.25, rShZ: -0.7, rElX: -1.0,
-            lShX: -0.2, lShY: 0.15, lShZ: 0.25, lElX: -0.9,
-            batX: -0.8, batY: R.batY - 0.8, batZ: 0.6,
+            hipY: 0.25, hipX: 0, spineX: -0.12, spineY: 0.35, spineZ: 0.08,
+            neckY: R.neckY * 1.1, neckX: -0.05,
+            rShX: -0.15, rShY: 0.25, rShZ: -0.5, rElX: -0.25,
+            lShX: -0.15, lShY: -0.25, lShZ: 0.1, lElX: -0.4,
+            batX: -0.3, batY: R.batY - 0.5, batZ: 0.2,
             groupZ: 0.1,
           },
           followThrough: {
             lHipJointX: 0, lHipJointZ: R.lHipJointZ, lKneeX: 0.1,
             rHipJointX: -0.05, rHipJointZ: R.rHipJointZ, rKneeX: 0.5,
-            hipY: 0.3, hipX: 0, spineX: -0.2, spineY: 0.5, spineZ: 0.15,
-            neckY: R.neckY * 1.3, neckX: -0.1,
-            rShX: -0.1, rShY: 0.35, rShZ: -0.9, rElX: -1.1,
-            lShX: 0, lShY: 0.25, lShZ: 0.15, lElX: -1.0,
-            batX: -1.6, batY: R.batY - 1.2, batZ: 0.8,
+            hipY: 0.3, hipX: 0, spineX: -0.18, spineY: 0.45, spineZ: 0.1,
+            neckY: R.neckY * 1.2, neckX: -0.08,
+            rShX: 0.1, rShY: 0.3, rShZ: -0.55, rElX: -0.35,
+            lShX: 0.1, lShY: -0.3, lShZ: 0.1, lElX: -0.5,
+            batX: -0.5, batY: R.batY - 0.8, batZ: 0.3,
             groupZ: 0.1,
           },
         };
@@ -567,9 +571,9 @@ export class Batsman {
             rHipJointX: 0.05, rHipJointZ: R.rHipJointZ, rKneeX: 0.2,
             hipY: 0, hipX: 0, spineX: -0.08, spineY: 0, spineZ: -0.03,
             neckY: R.neckY, neckX: -0.03,
-            rShX: -0.25, rShY: 0, rShZ: -0.2, rElX: -1.3,
-            lShX: -0.2, lShY: 0, lShZ: 0.3, lElX: -1.2,
-            batX: 0.2, batY: R.batY, batZ: 0.05,
+            rShX: -0.4, rShY: 0, rShZ: -0.35, rElX: -0.75,
+            lShX: -0.4, lShY: 0, lShZ: 0.1, lElX: -0.95,
+            batX: 0.2, batY: R.batY, batZ: 0,
             groupZ: -0.15,
           },
           backlift: {
@@ -577,29 +581,29 @@ export class Batsman {
             rHipJointX: 0.05, rHipJointZ: R.rHipJointZ, rKneeX: 0.2,
             hipY: 0, hipX: 0, spineX: 0.03, spineY: 0, spineZ: -0.03,
             neckY: R.neckY, neckX: 0,
-            rShX: -1.0, rShY: 0, rShZ: -0.18, rElX: -0.6,
-            lShX: -0.9, lShY: 0, lShZ: 0.3, lElX: -0.5,
-            batX: 1.0, batY: R.batY, batZ: 0,
+            rShX: -0.7, rShY: 0, rShZ: -0.3, rElX: -0.65,
+            lShX: -0.7, lShY: 0, lShZ: 0.1, lElX: -0.85,
+            batX: 0.4, batY: R.batY, batZ: 0,
             groupZ: -0.15,
           },
           swing: {
             lHipJointX: -0.4, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
             rHipJointX: 0.08, rHipJointZ: R.rHipJointZ, rKneeX: 0.22,
-            hipY: 0.05, hipX: 0, spineX: -0.12, spineY: 0, spineZ: -0.02,
+            hipY: 0.05, hipX: 0, spineX: -0.1, spineY: 0, spineZ: -0.02,
             neckY: R.neckY, neckX: -0.05,
-            rShX: -0.4, rShY: 0, rShZ: -0.25, rElX: -1.0,
-            lShX: -0.35, lShY: 0, lShZ: 0.25, lElX: -0.9,
-            batX: -0.2, batY: R.batY, batZ: 0,
+            rShX: -0.1, rShY: 0, rShZ: -0.35, rElX: -0.3,
+            lShX: -0.1, lShY: 0, lShZ: 0.1, lElX: -0.5,
+            batX: -0.1, batY: R.batY, batZ: 0,
             groupZ: -0.2,
           },
           followThrough: {
             lHipJointX: -0.45, lHipJointZ: R.lHipJointZ, lKneeX: 0.2,
             rHipJointX: 0.08, rHipJointZ: R.rHipJointZ, rKneeX: 0.22,
-            hipY: 0.05, hipX: 0, spineX: -0.12, spineY: 0, spineZ: -0.02,
+            hipY: 0.05, hipX: 0, spineX: -0.1, spineY: 0, spineZ: -0.02,
             neckY: R.neckY, neckX: -0.05,
-            rShX: -0.35, rShY: 0, rShZ: -0.25, rElX: -1.0,
-            lShX: -0.3, lShY: 0, lShZ: 0.25, lElX: -0.85,
-            batX: -0.35, batY: R.batY, batZ: 0,
+            rShX: -0.05, rShY: 0, rShZ: -0.35, rElX: -0.35,
+            lShX: -0.05, lShY: 0, lShZ: 0.1, lElX: -0.55,
+            batX: -0.15, batY: R.batY, batZ: 0,
             groupZ: -0.2,
           },
         };
@@ -613,7 +617,10 @@ export class Batsman {
     if (pose.rShY !== undefined) this.rightShoulderJoint.rotation.y = l(this.rightShoulderJoint.rotation.y, pose.rShY);
     if (pose.rShZ !== undefined) this.rightShoulderJoint.rotation.z = l(this.rightShoulderJoint.rotation.z, pose.rShZ);
     if (pose.rElX !== undefined) this.rightElbowJoint.rotation.x = l(this.rightElbowJoint.rotation.x, pose.rElX);
-    // Left arm (lShX, lShY, lShZ, lElX) is driven by _solveLeftHandIK — skip here
+    if (pose.lShX !== undefined) this.leftShoulderJoint.rotation.x = l(this.leftShoulderJoint.rotation.x, pose.lShX);
+    if (pose.lShY !== undefined) this.leftShoulderJoint.rotation.y = l(this.leftShoulderJoint.rotation.y, pose.lShY);
+    if (pose.lShZ !== undefined) this.leftShoulderJoint.rotation.z = l(this.leftShoulderJoint.rotation.z, pose.lShZ);
+    if (pose.lElX !== undefined) this.leftElbowJoint.rotation.x = l(this.leftElbowJoint.rotation.x, pose.lElX);
     if (pose.batX !== undefined) this.batGroup.rotation.x = l(this.batGroup.rotation.x, pose.batX);
     if (pose.batY !== undefined) this.batGroup.rotation.y = l(this.batGroup.rotation.y, pose.batY);
     if (pose.batZ !== undefined) this.batGroup.rotation.z = l(this.batGroup.rotation.z, pose.batZ);
@@ -637,71 +644,106 @@ export class Batsman {
   }
 
   update(dt) {
+    const easeOut = (x) => 1 - (1 - x) * (1 - x);
+    const easeIn = (x) => x * x;
+
     if (this._animState === 'step') {
       this._animTime += dt;
-      const t = Math.min(this._animTime / this._animDuration, 1.0);
+      const raw = Math.min(this._animTime / this._animDuration, 1.0);
       const kf = this._getShotKeyframes(this._shotType);
-      this._applyPose(kf.step, t);
-      if (t >= 1.0) {
+      this._applyPose(kf.step, easeOut(raw));
+      if (raw >= 1.0) {
         this._animState = 'backlift';
-        this._animTime = 0;
-        this._animDuration = 0.1;
-      }
-    } else if (this._animState === 'backlift') {
-      this._animTime += dt;
-      const t = Math.min(this._animTime / this._animDuration, 1.0);
-      const kf = this._getShotKeyframes(this._shotType);
-      this._applyPose(kf.backlift, t);
-      if (t >= 1.0) {
-        this._animState = 'swinging';
         this._animTime = 0;
         this._animDuration = 0.12;
       }
+    } else if (this._animState === 'backlift') {
+      this._animTime += dt;
+      const raw = Math.min(this._animTime / this._animDuration, 1.0);
+      const kf = this._getShotKeyframes(this._shotType);
+      this._applyPose(kf.backlift, easeIn(raw));
+      if (raw >= 1.0) {
+        this._animState = 'swinging';
+        this._animTime = 0;
+        this._animDuration = 0.1;
+      }
     } else if (this._animState === 'swinging') {
       this._animTime += dt;
-      const t = Math.min(this._animTime / this._animDuration, 1.0);
+      const raw = Math.min(this._animTime / this._animDuration, 1.0);
       const kf = this._getShotKeyframes(this._shotType);
+      // Fast acceleration through ball contact
+      const t = raw < 0.5 ? 2 * raw * raw : 1 - 2 * (1 - raw) * (1 - raw);
       this._applyPose(kf.swing, t);
-      if (t >= 1.0) {
+      if (raw >= 1.0) {
         this._animState = 'followthrough';
         this._animTime = 0;
-        this._animDuration = 0.18;
+        this._animDuration = 0.2;
       }
     } else if (this._animState === 'followthrough') {
       this._animTime += dt;
-      const t = Math.min(this._animTime / this._animDuration, 1.0);
+      const raw = Math.min(this._animTime / this._animDuration, 1.0);
       const kf = this._getShotKeyframes(this._shotType);
-      this._applyPose(kf.followThrough, t);
-      if (t >= 1.0) {
+      this._applyPose(kf.followThrough, easeOut(raw));
+      if (raw >= 1.0) {
         this._animState = 'returning';
         this._animTime = 0;
         this._animDuration = 0.5;
       }
     } else if (this._animState === 'returning') {
       this._animTime += dt;
-      const t = Math.min(this._animTime / this._animDuration, 1.0);
-      this._applyPose(this._restPose, t);
-      if (t >= 1.0) {
+      const raw = Math.min(this._animTime / this._animDuration, 1.0);
+      this._applyPose(this._restPose, easeOut(raw));
+      if (raw >= 1.0) {
         this._animState = 'idle';
       }
     }
 
-    this._solveLeftHandIK();
+    this._aimLeftArmAtBat();
   }
 
-  _solveLeftHandIK() {
-    // Both hands grip the bat together. The left arm mirrors the right arm's
-    // rotations with offsets to account for the opposite shoulder position.
-    // The left shoulder Z is flipped and offset to bring the arm across the body.
-    const rShX = this.rightShoulderJoint.rotation.x;
-    const rShY = this.rightShoulderJoint.rotation.y;
-    const rShZ = this.rightShoulderJoint.rotation.z;
-    const rElX = this.rightElbowJoint.rotation.x;
+  _aimLeftArmAtBat() {
+    // The left glove is parented to the bat, so it's always on the handle.
+    // We just need to aim the left arm (shoulder + elbow) toward it visually.
+    this.group.updateMatrixWorld(true);
 
-    this.leftShoulderJoint.rotation.x = rShX - 0.05;
-    this.leftShoulderJoint.rotation.y = -rShY;
-    this.leftShoulderJoint.rotation.z = -rShZ + 0.45;
-    this.leftElbowJoint.rotation.x = rElX + 0.1;
+    const gloveWorld = new THREE.Vector3();
+    this.leftGlove.getWorldPosition(gloveWorld);
+
+    const shoulderWorld = new THREE.Vector3();
+    this.leftShoulderJoint.getWorldPosition(shoulderWorld);
+
+    // Convert glove position into spine-local space (left shoulder's parent)
+    const spineInv = new THREE.Matrix4().copy(this.spineJoint.matrixWorld).invert();
+    const gloveInSpine = gloveWorld.clone().applyMatrix4(spineInv);
+
+    const shoulderLocal = this.leftShoulderJoint.position;
+    const toGlove = gloveInSpine.clone().sub(shoulderLocal);
+
+    const upperLen = 0.28;
+    const foreLen = 0.27;
+    const totalLen = upperLen + foreLen;
+    const dist = Math.min(toGlove.length(), totalLen * 0.98);
+
+    if (dist < 0.05) return;
+
+    // Shoulder pitch (rotation.x): angle in the Y-down / Z-forward plane
+    const pitchAngle = Math.atan2(-toGlove.y, Math.sqrt(toGlove.x * toGlove.x + toGlove.z * toGlove.z));
+
+    // Shoulder yaw (rotation.y): angle in the X / Z plane  
+    const yawAngle = Math.atan2(toGlove.x, toGlove.z);
+
+    // Elbow bend via law of cosines
+    const cosElbow = (upperLen * upperLen + foreLen * foreLen - dist * dist) / (2 * upperLen * foreLen);
+    const elbowBend = -(Math.PI - Math.acos(Math.max(-1, Math.min(1, cosElbow))));
+
+    // Shoulder elevation correction
+    const cosLift = (upperLen * upperLen + dist * dist - foreLen * foreLen) / (2 * upperLen * dist);
+    const liftAngle = Math.acos(Math.max(-1, Math.min(1, cosLift)));
+
+    this.leftShoulderJoint.rotation.x = pitchAngle - liftAngle;
+    this.leftShoulderJoint.rotation.y = yawAngle;
+    this.leftShoulderJoint.rotation.z = 0;
+    this.leftElbowJoint.rotation.x = elbowBend;
   }
 
   resetPose() {
@@ -710,5 +752,6 @@ export class Batsman {
     this.group.position.set(this._homeX, 0, this._homeZ);
     if (!this._restPose) return;
     this._applyPose(this._restPose, 1.0);
+    this._aimLeftArmAtBat();
   }
 }
