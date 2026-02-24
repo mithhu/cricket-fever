@@ -289,7 +289,7 @@ export class GameEngine {
 
       case GAME_STATE.WAITING: {
         this._waitTimer += dt;
-        this.shotSelector.update(this.input.getShotDirection());
+        this.shotSelector.update(this.input.getShotDirection(), dt);
         const wmov = this.input.getMovement();
         if (wmov.x !== 0 || wmov.z !== 0) {
           this.batsman.moveInCrease(wmov.x, wmov.z, dt);
@@ -342,7 +342,7 @@ export class GameEngine {
     this.bowler.update(dt);
     this.ball.update(dt);
     this.batsman.update(dt);
-    this.shotSelector.update(this.input.getShotDirection());
+    this.shotSelector.update(this.input.getShotDirection(), dt);
 
     if (!this._shotPlayed) {
       const mov = this.input.getMovement();
