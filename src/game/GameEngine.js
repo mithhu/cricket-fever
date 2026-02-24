@@ -521,19 +521,20 @@ export class GameEngine {
 
     if (!this._shotPlayed) {
       if (this._isOnline) {
-        // In online mode, don't process shots locally — wait for server events
         if (this._onlineRole === 'batter') {
           const trigger = this.input.consumeShotTrigger();
-          if (trigger && this.ball.active && this.networkManager) {
-            this.networkManager.sendShotInput(
-              trigger.shot,
-              trigger.lofted,
-              this.batsman.group.position.x,
-              this.batsman.group.position.z
-            );
+          if (trigger && this.ball.active) {
+            if (this.networkManager) {
+              this.networkManager.sendShotInput(
+                trigger.shot,
+                trigger.lofted,
+                this.batsman.group.position.x,
+                this.batsman.group.position.z
+              );
+            }
+            this._attemptShot(trigger);
           }
         }
-        // bowler just watches — shot_played event from server triggers animation
       } else if (this._isPlayerBowling) {
         this._updateAIBatting();
       } else {
@@ -550,13 +551,27 @@ export class GameEngine {
     }
 
     if (this.ball.active && !this.ball.hasBeenHit) {
-      if (this.physics.checkBowled(this.ball)) {
-        this._handleWicket('bowled');
-        return;
-      }
-      if (this.ball.position.z > this.batsman.group.position.z + 8) {
-        this._handleDotBall();
-        return;
+      if (this._isOnline) {
+        // In online mode, only the batter's client detects bowled/dot and reports to server
+        if (this._onlineRole === 'batter') {
+          if (this.physics.checkBowled(this.ball)) {
+            this._handleWicket('bowled');
+            return;
+          }
+          if (this.ball.position.z > this.batsman.group.position.z + 8) {
+            this._handleDotBall();
+            return;
+          }
+        }
+      } else {
+        if (this.physics.checkBowled(this.ball)) {
+          this._handleWicket('bowled');
+          return;
+        }
+        if (this.ball.position.z > this.batsman.group.position.z + 8) {
+          this._handleDotBall();
+          return;
+        }
       }
     }
 
@@ -629,14 +644,20 @@ export class GameEngine {
       this._chaseSent = true;
     }
 
+    // In online mode, only the batter's client detects outcomes and reports to server.
+    // The bowler's client just animates visually and waits for ball_result from server.
+    const canDetectOutcome = !this._isOnline || this._onlineRole === 'batter';
+
     // Check boundary first
-    if (this.ball.isSix()) {
-      this._handleBoundary(6);
-      return;
-    }
-    if (this.ball.isFour()) {
-      this._handleBoundary(4);
-      return;
+    if (canDetectOutcome) {
+      if (this.ball.isSix()) {
+        this._handleBoundary(6);
+        return;
+      }
+      if (this.ball.isFour()) {
+        this._handleBoundary(4);
+        return;
+      }
     }
 
     // Catch logic: ball must literally fall into a fielder's hands
@@ -655,15 +676,15 @@ export class GameEngine {
         cf.willDrop = false;
       } else if (this.fielders.isCatchComplete(cf)) {
         this._catchingFielder = null;
-        this._handleWicket('caught');
-        return;
+        if (canDetectOutcome) {
+          this._handleWicket('caught');
+          return;
+        }
       }
     } else if (!this._catchAttempted
                && this.ball.position.y > 1.2 && this.ball.position.y < 2.2
                && this.ball.velocity.y < -1.0) {
-      // Check ONCE as ball drops through hand-height (1.2-2.2m)
       this._catchAttempted = true;
-      // Only lofted shots can be caught
       if (this._shotResult && this._shotResult.lofted) {
         const catchOpp = this.fielders.checkCatchOpportunity(this.ball.position);
         if (catchOpp && catchOpp.distance < CATCH_HAND_RADIUS) {
@@ -684,7 +705,6 @@ export class GameEngine {
         if (intercept.isDive) {
           this.fielders.triggerDive(intercept.fielder);
         }
-        // Estimate runs BEFORE stopping the ball (based on how far it traveled)
         const distFromCenter = this.ball.getDistanceFromCenter();
         let interceptRuns = 0;
         if (distFromCenter > 40) interceptRuns = 2;
@@ -697,8 +717,8 @@ export class GameEngine {
       }
     }
 
-    // Check for overthrow
-    if (this.fielders.isOverthrow()) {
+    // Check for overthrow (visual only — runs handled via ball_result in online mode)
+    if (!this._isOnline && this.fielders.isOverthrow()) {
       const extra = this.fielders.getOverthrowRuns();
       this.fielders.consumeOverthrow();
       this.scoreManager.addRuns(extra);
@@ -709,7 +729,7 @@ export class GameEngine {
     }
 
     // Ball settled on field
-    if (this.ball.settled || this._ballSettledTimeout(dt)) {
+    if (canDetectOutcome && (this.ball.settled || this._ballSettledTimeout(dt))) {
       let runs;
       if (this._intercepted && this._interceptRuns !== undefined) {
         runs = this._interceptRuns;
@@ -717,6 +737,9 @@ export class GameEngine {
         runs = this.physics.estimateRuns(this.ball, this.fielders);
       }
       this._handleRuns(runs);
+    } else if (!canDetectOutcome) {
+      // Bowler client: still advance the settle timer so animations don't freeze
+      this._ballSettledTimeout(dt);
     }
   }
 
@@ -1082,7 +1105,22 @@ export class GameEngine {
     this.state = GAME_STATE.WAITING;
   }
 
-  onlineNewBall(_data) {
+  onlineNewBall(data) {
+    // Sync score from server on each new ball
+    if (data && data.score) {
+      const score = data.score;
+      this.scoreManager.runs = score.runs;
+      this.scoreManager.wickets = score.wickets;
+      this.scoreManager.ballsFaced = parseInt(score.overs.split('.')[0]) * 6 + parseInt(score.overs.split('.')[1]);
+      this.scoreManager.fours = score.fours;
+      this.scoreManager.sixes = score.sixes;
+      this.scoreManager.batsmanRuns = score.batsmanRuns;
+      this.scoreManager.batsmanBalls = score.batsmanBalls;
+      if (score.target) this.scoreManager.setTarget(score.target);
+      this.scoreManager.lastBallResult = score.lastBallResult;
+      this.scoreboard.update(this.scoreManager);
+    }
+
     this._shotPlayed = false;
     this._shotResult = null;
     this._ballSettleTimer = 0;
@@ -1131,6 +1169,11 @@ export class GameEngine {
 
   onlineShotPlayed(data) {
     const { shot, lofted, seed } = data;
+
+    // The batter's client already executed this shot locally via input.
+    // Only the bowler's client needs to replay it from the server event.
+    if (this._onlineRole === 'batter') return;
+
     this.physics.setSeed(seed);
 
     if (!this.ball.active) return;
@@ -1141,6 +1184,7 @@ export class GameEngine {
 
     if (timing === 'miss') {
       this._showTimingIndicator('miss', 'clean');
+      this.physics.setSeed(null);
       return;
     }
 
@@ -1150,6 +1194,7 @@ export class GameEngine {
     if (reach === 'air') {
       this._showTimingIndicator(timing, 'air');
       this.commentary.onMiss();
+      this.physics.setSeed(null);
       return;
     }
 
@@ -1178,25 +1223,24 @@ export class GameEngine {
   }
 
   onlineBallResult(data) {
-    const { runs, wicket, wicketType, isBoundary, inningsOver } = data;
+    const { runs, wicket, wicketType, isBoundary, score, inningsOver } = data;
 
-    if (wicket) {
-      this.scoreManager.addWicket(wicketType);
-    }
-    if (isBoundary) {
-      this.scoreManager.addRuns(runs);
-    } else if (!wicket) {
-      this.scoreManager.addRuns(runs);
-    }
-    this.scoreManager.addBall();
-
-    if (this._onlineRole === 'bowler') {
-      this.scoreManager.addBowlerBall(wicket ? 0 : runs);
-      if (wicket) this.scoreManager.addBowlerWicket();
+    // Use server-authoritative score to sync both clients
+    if (score) {
+      this.scoreManager.runs = score.runs;
+      this.scoreManager.wickets = score.wickets;
+      this.scoreManager.ballsFaced = parseInt(score.overs.split('.')[0]) * 6 + parseInt(score.overs.split('.')[1]);
+      this.scoreManager.fours = score.fours;
+      this.scoreManager.sixes = score.sixes;
+      this.scoreManager.batsmanRuns = score.batsmanRuns;
+      this.scoreManager.batsmanBalls = score.batsmanBalls;
+      if (score.target) this.scoreManager.setTarget(score.target);
+      this.scoreManager.lastBallResult = score.lastBallResult;
     }
 
     this.scoreboard.update(this.scoreManager);
 
+    // Visual/audio feedback
     if (wicket) {
       this._showBallEvent(`WICKET!\n${wicketType.toUpperCase()}`);
       if (wicketType === 'bowled') {

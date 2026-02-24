@@ -239,8 +239,10 @@ export class RoomManager {
 
     if (wicket) {
       session.addWicket(wicketType);
+      session.addBallOnly();
+    } else {
+      session.addBall(runs, isBoundary);
     }
-    session.addBall(runs, isBoundary);
 
     const score = session.getScore();
     const inningsOver = session.isInningsOver();

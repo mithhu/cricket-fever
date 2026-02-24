@@ -117,6 +117,11 @@ export class GameSession {
     state.batsmanBalls = 0;
   }
 
+  addBallOnly() {
+    const state = this._currentInningsState();
+    state.ballsFaced++;
+  }
+
   isInningsOver() {
     const state = this._currentInningsState();
     if (state.target !== null && state.runs >= state.target) return true;
