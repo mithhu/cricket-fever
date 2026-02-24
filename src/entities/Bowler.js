@@ -133,12 +133,18 @@ export class Bowler {
     const head = new THREE.Mesh(headGeo, skin);
     this.headGroup.add(head);
 
-    // Hair (on the back of the head, -Z side)
-    const hairGeo = new THREE.SphereGeometry(0.125, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.5);
+    // Hair — full cap covering top and sides of head
+    const hairGeo = new THREE.SphereGeometry(0.13, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
     const hair = new THREE.Mesh(hairGeo, hairMat);
     hair.position.y = 0.02;
-    hair.rotation.x = Math.PI;
     this.headGroup.add(hair);
+
+    // Hair fringe/back — thicker at the back
+    const hairBackGeo = new THREE.SphereGeometry(0.128, 12, 8, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.35);
+    const hairBack = new THREE.Mesh(hairBackGeo, hairMat);
+    hairBack.position.set(0, 0.01, -0.02);
+    hairBack.rotation.x = Math.PI;
+    this.headGroup.add(hairBack);
 
     // Face — on +Z side so bowler faces toward batsman
     const eyeGeo = new THREE.SphereGeometry(0.016, 8, 8);
@@ -236,11 +242,11 @@ export class Bowler {
     rHand.position.y = -0.27;
     this.rightElbowJoint.add(rHand);
 
-    // Ball in bowling hand
+    // Ball in bowling hand (left arm = screen right when viewed from behind = right-arm bowler look)
     const ballGeo = new THREE.SphereGeometry(0.14, 10, 10);
     this.handBall = new THREE.Mesh(ballGeo, ballMat);
     this.handBall.position.y = -0.32;
-    this.rightElbowJoint.add(this.handBall);
+    this.leftElbowJoint.add(this.handBall);
     this.handBall.visible = false;
   }
 
@@ -300,10 +306,10 @@ export class Bowler {
     this.rightKneeJoint.rotation.x = Math.max(0, cycle) * 0.8;
 
     // Arms pump opposite to legs
-    this.leftShoulderJoint.rotation.x = -cycle * 0.4;
-    this.leftElbowJoint.rotation.x = -0.5;
-    this.rightShoulderJoint.rotation.x = cycle * 0.4;
+    this.rightShoulderJoint.rotation.x = -cycle * 0.4;
     this.rightElbowJoint.rotation.x = -0.5;
+    this.leftShoulderJoint.rotation.x = cycle * 0.4;
+    this.leftElbowJoint.rotation.x = -0.5;
 
     // Slight torso lean forward
     this.spineJoint.rotation.x = -0.1;
@@ -325,12 +331,12 @@ export class Bowler {
     const duration = 0.25;
     const t = Math.min(this._animTime / duration, 1.0);
 
-    // Gather: jump, bring bowling arm up, non-bowling arm comes up too
-    this.rightShoulderJoint.rotation.x = lerp(0, -2.8, t);
-    this.rightElbowJoint.rotation.x = lerp(-0.5, -0.1, t);
+    // Gather: jump, bring bowling arm (left) up, non-bowling arm comes up too
+    this.leftShoulderJoint.rotation.x = lerp(0, -2.8, t);
+    this.leftElbowJoint.rotation.x = lerp(-0.5, -0.1, t);
 
-    this.leftShoulderJoint.rotation.x = lerp(0, -1.5, t);
-    this.leftElbowJoint.rotation.x = lerp(-0.5, -0.3, t);
+    this.rightShoulderJoint.rotation.x = lerp(0, -1.5, t);
+    this.rightElbowJoint.rotation.x = lerp(-0.5, -0.3, t);
 
     // Chest opens up
     this.spineJoint.rotation.x = lerp(-0.15, 0.2, t);
@@ -354,13 +360,29 @@ export class Bowler {
     this._animTime += dt;
     const t = Math.min(this._animTime / this._bowlDuration, 1.0);
 
-    // Bowling arm comes over the top (full rotation)
-    this.rightShoulderJoint.rotation.x = lerp(-2.8, -2.8 - Math.PI, t);
-    this.rightElbowJoint.rotation.x = lerp(-0.1, -0.05, t);
+    // Arm starts at -2.8 (behind head). Release at the top of the arc (-PI = straight up).
+    // After release, arm follows through naturally downward then decelerates.
+    const releaseT = 0.35;
+    const topAngle = -Math.PI;
+    const endAngle = -0.5;
 
-    // Non-bowling arm pulls down
-    this.leftShoulderJoint.rotation.x = lerp(-1.5, 0.3, t);
-    this.leftElbowJoint.rotation.x = lerp(-0.3, -1.2, t);
+    if (t <= releaseT) {
+      // Pre-release: arm sweeps up to vertical (the release point)
+      const preT = t / releaseT;
+      const eased = preT * preT;
+      this.leftShoulderJoint.rotation.x = lerp(-2.8, topAngle, eased);
+      this.leftElbowJoint.rotation.x = lerp(-0.1, -0.02, preT);
+    } else {
+      // Post-release: arm continues forward then decelerates to rest
+      const postT = (t - releaseT) / (1.0 - releaseT);
+      const eased = 1 - (1 - postT) * (1 - postT);
+      this.leftShoulderJoint.rotation.x = lerp(topAngle, endAngle, eased);
+      this.leftElbowJoint.rotation.x = lerp(-0.02, -0.4, eased);
+    }
+
+    // Non-bowling arm (right) pulls down
+    this.rightShoulderJoint.rotation.x = lerp(-1.5, 0.3, t);
+    this.rightElbowJoint.rotation.x = lerp(-0.3, -1.2, t);
 
     // Torso drives forward and rotates
     this.spineJoint.rotation.x = lerp(0.2, -0.4, t);
@@ -374,11 +396,9 @@ export class Bowler {
     this.rightHipJoint.rotation.x = lerp(-0.3, 0.3, t);
     this.rightKneeJoint.rotation.x = lerp(0, 0.5, t);
 
-    // Head stays looking at batsman
     this.neckJoint.rotation.x = lerp(0, 0.3, t);
 
-    // Release ball at ~55% of bowling animation
-    if (t >= 0.55 && !this._delivered) {
+    if (t >= releaseT && !this._delivered) {
       this._delivered = true;
       this.handBall.visible = false;
       if (this._onDelivery) {
@@ -386,7 +406,6 @@ export class Bowler {
       }
     }
 
-    // Move forward during delivery stride
     this.group.position.z += dt * 2;
 
     if (t >= 1.0) {
@@ -397,34 +416,28 @@ export class Bowler {
 
   _updateFollowThrough(dt) {
     this._animTime += dt;
-    const duration = 0.6;
+    const duration = 0.35;
     const t = Math.min(this._animTime / duration, 1.0);
+    const eased = 1 - (1 - t) * (1 - t);
 
-    // Bowling arm continues and decelerates
-    this.rightShoulderJoint.rotation.x = lerp(
-      this.rightShoulderJoint.rotation.x, -0.5, t
-    );
-    this.rightElbowJoint.rotation.x = lerp(
-      this.rightElbowJoint.rotation.x, -0.3, t
-    );
+    // Everything settles to idle quickly
+    this.leftShoulderJoint.rotation.x = lerp(this.leftShoulderJoint.rotation.x, -0.1, eased);
+    this.leftElbowJoint.rotation.x = lerp(this.leftElbowJoint.rotation.x, 0, eased);
 
-    // Body straightens
-    this.spineJoint.rotation.x = lerp(this.spineJoint.rotation.x, -0.1, t);
-    this.spineJoint.rotation.y = lerp(this.spineJoint.rotation.y, 0, t);
+    this.rightShoulderJoint.rotation.x = lerp(this.rightShoulderJoint.rotation.x, 0, eased);
+    this.rightElbowJoint.rotation.x = lerp(this.rightElbowJoint.rotation.x, 0, eased);
 
-    this.leftShoulderJoint.rotation.x = lerp(this.leftShoulderJoint.rotation.x, 0, t);
-    this.leftElbowJoint.rotation.x = lerp(this.leftElbowJoint.rotation.x, 0, t);
+    this.spineJoint.rotation.x = lerp(this.spineJoint.rotation.x, -0.05, eased);
+    this.spineJoint.rotation.y = lerp(this.spineJoint.rotation.y, 0, eased);
 
-    // Legs decelerate
-    this.leftHipJoint.rotation.x = lerp(this.leftHipJoint.rotation.x, 0, t);
-    this.rightHipJoint.rotation.x = lerp(this.rightHipJoint.rotation.x, 0, t);
-    this.leftKneeJoint.rotation.x = lerp(this.leftKneeJoint.rotation.x, 0, t);
-    this.rightKneeJoint.rotation.x = lerp(this.rightKneeJoint.rotation.x, 0, t);
+    this.leftHipJoint.rotation.x = lerp(this.leftHipJoint.rotation.x, 0, eased);
+    this.rightHipJoint.rotation.x = lerp(this.rightHipJoint.rotation.x, 0, eased);
+    this.leftKneeJoint.rotation.x = lerp(this.leftKneeJoint.rotation.x, 0, eased);
+    this.rightKneeJoint.rotation.x = lerp(this.rightKneeJoint.rotation.x, 0, eased);
 
-    this.neckJoint.rotation.x = lerp(this.neckJoint.rotation.x, 0, t);
+    this.neckJoint.rotation.x = lerp(this.neckJoint.rotation.x, 0, eased);
 
-    // Slow down movement
-    this.group.position.z += dt * (1 - t) * 2;
+    this.group.position.z += dt * (1 - t) * 1.5;
 
     if (t >= 1.0) {
       this._animState = 'idle';
