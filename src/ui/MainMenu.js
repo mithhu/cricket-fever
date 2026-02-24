@@ -15,16 +15,32 @@ export class MainMenu {
     this.nameHint = document.getElementById('name-hint');
 
     this._onStart = null;
+    this._on2PlayerStart = null;
     this._selectedName = null;
     this._selectedDifficulty = 'medium';
     this._players = this._loadPlayers();
     this._bestScores = {};
 
-    this._diffBtns = document.querySelectorAll('.diff-btn');
+    // Two-player state
+    this._tpPlayer1 = null;
+    this._tpPlayer2 = null;
+    this._tpActiveSlot = 1;
+    this._tpDifficulty = 'medium';
+
+    this._diffBtns = document.querySelectorAll('#difficulty-select .diff-btn');
     this._diffBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         this._selectedDifficulty = btn.dataset.diff;
         this._diffBtns.forEach((b) => b.classList.toggle('selected', b === btn));
+      });
+    });
+
+    // Two-player difficulty buttons
+    this._tpDiffBtns = document.querySelectorAll('#difficulty-btns-tp .diff-btn');
+    this._tpDiffBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this._tpDifficulty = btn.dataset.diff;
+        this._tpDiffBtns.forEach((b) => b.classList.toggle('selected', b === btn));
       });
     });
 
@@ -39,6 +55,34 @@ export class MainMenu {
       this.newPlayerInput.classList.remove('shake');
       this.nameHint.innerHTML = '&nbsp;';
     });
+
+    // Two-player UI elements
+    this._tpSelectEl = document.getElementById('two-player-select');
+    this._tpCardsEl = document.getElementById('tp-player-cards');
+    this._tpHint = document.getElementById('tp-hint');
+    this._tpName1El = document.getElementById('tp-name-1');
+    this._tpName2El = document.getElementById('tp-name-2');
+    this._tpSlot1 = document.getElementById('tp-slot-1');
+    this._tpSlot2 = document.getElementById('tp-slot-2');
+    this._soloElements = [
+      document.getElementById('player-select'),
+      document.getElementById('difficulty-select'),
+      this.btn5, this.btn10,
+    ];
+
+    this._tpSlot1.addEventListener('click', () => {
+      this._tpActiveSlot = 1;
+      this._renderTwoPlayerUI();
+    });
+    this._tpSlot2.addEventListener('click', () => {
+      this._tpActiveSlot = 2;
+      this._renderTwoPlayerUI();
+    });
+
+    document.getElementById('btn-two-player').addEventListener('click', () => this._showTwoPlayerMode());
+    document.getElementById('btn-back-solo').addEventListener('click', () => this._showSoloMode());
+    document.getElementById('btn-tp-start-5').addEventListener('click', () => this._validateAndStart2P(5));
+    document.getElementById('btn-tp-start-10').addEventListener('click', () => this._validateAndStart2P(10));
   }
 
   _loadPlayers() {
@@ -188,6 +232,10 @@ export class MainMenu {
     this.btn10.addEventListener('click', () => this._validateAndStart(10));
   }
 
+  on2PlayerStart(callback) {
+    this._on2PlayerStart = callback;
+  }
+
   getPlayerName() {
     return this._selectedName || '';
   }
@@ -198,9 +246,98 @@ export class MainMenu {
 
   show() {
     this.el.style.display = 'flex';
+    this._showSoloMode();
   }
 
   hide() {
     this.el.style.display = 'none';
+  }
+
+  _showTwoPlayerMode() {
+    this._soloElements.forEach((el) => { if (el) el.style.display = 'none'; });
+    document.getElementById('btn-two-player').style.display = 'none';
+    this._tpSelectEl.style.display = 'flex';
+    this._tpPlayer1 = null;
+    this._tpPlayer2 = null;
+    this._tpActiveSlot = 1;
+    this._renderTwoPlayerUI();
+  }
+
+  _showSoloMode() {
+    this._tpSelectEl.style.display = 'none';
+    this._soloElements.forEach((el) => {
+      if (el) el.style.display = el.tagName === 'BUTTON' ? '' : 'flex';
+    });
+    document.getElementById('btn-two-player').style.display = '';
+  }
+
+  _renderTwoPlayerUI() {
+    this._tpName1El.textContent = this._tpPlayer1 || '—';
+    this._tpName1El.className = 'tp-slot-name' + (this._tpPlayer1 ? ' filled' : '');
+    this._tpName2El.textContent = this._tpPlayer2 || '—';
+    this._tpName2El.className = 'tp-slot-name' + (this._tpPlayer2 ? ' filled' : '');
+    this._tpSlot1.className = 'tp-slot' + (this._tpActiveSlot === 1 ? ' active' : '');
+    this._tpSlot2.className = 'tp-slot' + (this._tpActiveSlot === 2 ? ' active' : '');
+
+    this._tpCardsEl.innerHTML = '';
+    this._players.forEach((name) => {
+      const card = document.createElement('div');
+      const isP1 = name === this._tpPlayer1;
+      const isP2 = name === this._tpPlayer2;
+      card.className = 'player-card' + (isP1 || isP2 ? ' selected' : '');
+
+      const avatar = document.createElement('span');
+      avatar.className = 'card-avatar';
+      avatar.textContent = name.charAt(0);
+      card.appendChild(avatar);
+
+      const label = document.createElement('span');
+      label.textContent = name;
+      card.appendChild(label);
+
+      if (isP1) {
+        const tag = document.createElement('span');
+        tag.className = 'card-best';
+        tag.textContent = '(P1)';
+        card.appendChild(tag);
+      } else if (isP2) {
+        const tag = document.createElement('span');
+        tag.className = 'card-best';
+        tag.textContent = '(P2)';
+        card.appendChild(tag);
+      }
+
+      card.addEventListener('click', () => this._tpSelectPlayer(name));
+      this._tpCardsEl.appendChild(card);
+    });
+
+    this._tpHint.innerHTML = '&nbsp;';
+  }
+
+  _tpSelectPlayer(name) {
+    if (this._tpActiveSlot === 1) {
+      if (name === this._tpPlayer2) {
+        this._tpPlayer2 = null;
+      }
+      this._tpPlayer1 = name;
+      this._tpActiveSlot = 2;
+    } else {
+      if (name === this._tpPlayer1) {
+        this._tpHint.textContent = 'Player already selected as P1';
+        return;
+      }
+      this._tpPlayer2 = name;
+    }
+    this._renderTwoPlayerUI();
+  }
+
+  _validateAndStart2P(overs) {
+    if (!this._tpPlayer1 || !this._tpPlayer2) {
+      this._tpHint.textContent = 'Select two different players';
+      return;
+    }
+    if (this._on2PlayerStart) {
+      this._on2PlayerStart(overs, this._tpPlayer1, this._tpPlayer2, this._tpDifficulty);
+    }
   }
 }

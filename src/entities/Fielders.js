@@ -334,6 +334,25 @@ export class Fielders {
   }
 
   // Tell all fielders to chase the ball's predicted landing spot
+  snapshotPositions() {
+    this._snapshot = this.fielders.map((f) => ({
+      x: f.group.position.x,
+      z: f.group.position.z,
+    }));
+  }
+
+  getNearestFielderFromSnapshot(x, z) {
+    if (!this._snapshot || this._snapshot.length === 0) {
+      return this.getNearestFielder(x, z);
+    }
+    let bestDist = Infinity;
+    for (const s of this._snapshot) {
+      const d = distance2D(s.x, s.z, x, z);
+      if (d < bestDist) bestDist = d;
+    }
+    return { dist: bestDist };
+  }
+
   chaseBall(ballPos, ballVel) {
     // Predict where ball will be in ~1.5 seconds
     const predictX = ballPos.x + ballVel.x * 1.5;

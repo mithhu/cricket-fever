@@ -58,6 +58,11 @@ mainMenu.onStart((overs, playerName, difficulty) => {
   gameEngine.startMatch(overs, playerName, difficulty);
 });
 
+mainMenu.on2PlayerStart((overs, player1, player2, difficulty) => {
+  mainMenu.hide();
+  gameEngine.startTwoPlayerMatch(overs, player1, player2, difficulty);
+});
+
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });

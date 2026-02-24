@@ -72,9 +72,37 @@ export class GameEngine {
     this._slowMoScale = 1;
     this.replayLabel = document.getElementById('replay-label');
 
+    // Two-player state
+    this._isTwoPlayer = false;
+    this._wasTwoPlayer = false;
+    this._currentInnings = 0;
+    this._player1Name = '';
+    this._player2Name = '';
+    this._battingOrder = [];
+    this._innings1Summary = null;
+
+    // Two-player UI elements
+    this.tossScreen = document.getElementById('toss-screen');
+    this.tossTitle = document.getElementById('toss-title');
+    this.tossDetail = document.getElementById('toss-detail');
+    this.tossContinueBtn = document.getElementById('btn-toss-continue');
+    this.inningsBreak = document.getElementById('innings-break');
+    this.ibSummary = document.getElementById('ib-summary');
+    this.ibDetails = document.getElementById('ib-details');
+    this.ibTarget = document.getElementById('ib-target');
+    this.ibContinueBtn = document.getElementById('btn-ib-continue');
+
+    this.tossContinueBtn.addEventListener('click', () => this._onTossContinue());
+    this.ibContinueBtn.addEventListener('click', () => this._onInningsBreakContinue());
+
     this.playAgainBtn.addEventListener('click', () => {
       this.resultScreen.style.display = 'none';
-      this.startMatch(this._lastOvers, this._playerName, this._difficulty);
+      document.querySelector('#result-screen h2').textContent = 'INNINGS OVER';
+      if (this._wasTwoPlayer) {
+        this.startTwoPlayerMatch(this._lastOvers, this._player1Name, this._player2Name, this._difficulty);
+      } else {
+        this.startMatch(this._lastOvers, this._playerName, this._difficulty);
+      }
     });
     this.mainMenuBtn.addEventListener('click', () => this._showMenu());
     this.endGameBtn.addEventListener('click', () => this._endGameEarly());
@@ -117,6 +145,7 @@ export class GameEngine {
   }
 
   startMatch(overs, playerName, difficulty) {
+    if (!this._isTwoPlayer) this._wasTwoPlayer = false;
     this._paused = false;
     this.pauseOverlay.style.display = 'none';
     this.pauseBtn.textContent = 'Pause';
@@ -145,6 +174,44 @@ export class GameEngine {
     this._startNewBall();
   }
 
+  startTwoPlayerMatch(overs, player1, player2, difficulty) {
+    this._isTwoPlayer = true;
+    this._wasTwoPlayer = true;
+    this._lastOvers = overs;
+    this._player1Name = player1;
+    this._player2Name = player2;
+    this._difficulty = difficulty || 'medium';
+    this._currentInnings = 0;
+    this._innings1Summary = null;
+
+    // Random toss to decide batting order
+    const firstBatter = Math.random() < 0.5 ? player1 : player2;
+    const secondBatter = firstBatter === player1 ? player2 : player1;
+    this._battingOrder = [firstBatter, secondBatter];
+
+    this.state = GAME_STATE.TOSS;
+    this.tossTitle.textContent = `${firstBatter} wins the toss!`;
+    this.tossDetail.textContent = `${firstBatter} will bat first`;
+    this.tossScreen.style.display = 'flex';
+  }
+
+  _onTossContinue() {
+    this.tossScreen.style.display = 'none';
+    this._currentInnings = 1;
+    const batter = this._battingOrder[0];
+    this.startMatch(this._lastOvers, batter, this._difficulty);
+  }
+
+  _onInningsBreakContinue() {
+    this.inningsBreak.style.display = 'none';
+    this._currentInnings = 2;
+    const batter = this._battingOrder[1];
+    const target = this._innings1Summary.runs + 1;
+    this.startMatch(this._lastOvers, batter, this._difficulty);
+    this.scoreManager.setTarget(target);
+    this.scoreboard.setTarget(target);
+  }
+
   _startNewBall() {
     this.state = GAME_STATE.WAITING;
     this._waitTimer = 0;
@@ -156,6 +223,7 @@ export class GameEngine {
     this._catchingFielder = null;
     this._catchAttempted = false;
     this._bouncePlayed = false;
+    this._interceptRuns = undefined;
     this.ball.reset();
     if (this.pitch) this.pitch.resetBails();
     this.batsman.resetPose();
@@ -173,8 +241,12 @@ export class GameEngine {
 
   _showMenu() {
     this.state = GAME_STATE.MENU;
+    this._isTwoPlayer = false;
+    this._wasTwoPlayer = false;
     this.sound.stopAmbientCrowd();
     this.resultScreen.style.display = 'none';
+    this.tossScreen.style.display = 'none';
+    this.inningsBreak.style.display = 'none';
     this.scoreboard.hide();
     this.shotSelector.hide();
     this.endGameBtn.style.display = 'none';
@@ -188,6 +260,7 @@ export class GameEngine {
     this.highScores.renderToMenu();
     this._refreshPlayerCards();
     document.getElementById('main-menu').style.display = 'flex';
+    document.querySelector('#result-screen h2').textContent = 'INNINGS OVER';
   }
 
   _refreshPlayerCards() {
@@ -210,6 +283,8 @@ export class GameEngine {
 
     switch (this.state) {
       case GAME_STATE.MENU:
+      case GAME_STATE.TOSS:
+      case GAME_STATE.INNINGS_BREAK:
         break;
 
       case GAME_STATE.WAITING: {
@@ -362,6 +437,7 @@ export class GameEngine {
 
     // Send fielders chasing once after ball is hit
     if (!this._chaseSent && this.ball.hasBeenHit) {
+      this.fielders.snapshotPositions();
       this.fielders.chaseBall(this.ball.position, this.ball.velocity);
       this.fielders.recordShotDirection(this.ball.velocity.x * 2, this.ball.velocity.z * 2);
       this._chaseSent = true;
@@ -422,6 +498,13 @@ export class GameEngine {
         if (intercept.isDive) {
           this.fielders.triggerDive(intercept.fielder);
         }
+        // Estimate runs BEFORE stopping the ball (based on how far it traveled)
+        const distFromCenter = this.ball.getDistanceFromCenter();
+        let interceptRuns = 0;
+        if (distFromCenter > 40) interceptRuns = 2;
+        else if (distFromCenter > 20) interceptRuns = 1;
+        this._interceptRuns = interceptRuns;
+
         this.ball.velocity.set(0, 0, 0);
         this.ball.settled = true;
         this.fielders.startReturnThrow(intercept.fielder);
@@ -441,7 +524,12 @@ export class GameEngine {
 
     // Ball settled on field
     if (this.ball.settled || this._ballSettledTimeout(dt)) {
-      const runs = this.physics.estimateRuns(this.ball, this.fielders);
+      let runs;
+      if (this._intercepted && this._interceptRuns !== undefined) {
+        runs = this._interceptRuns;
+      } else {
+        runs = this.physics.estimateRuns(this.ball, this.fielders);
+      }
       this._handleRuns(runs);
     }
   }
@@ -459,7 +547,11 @@ export class GameEngine {
     this.scoreManager.addRuns(runs);
     this.scoreManager.addBall();
     this.scoreboard.update(this.scoreManager);
-    this._showBallEvent(runs === 6 ? 'SIX!' : 'FOUR!');
+    if (this._isTwoPlayer && this.scoreManager.isTargetReached()) {
+      this._showBallEvent('TARGET REACHED!');
+    } else {
+      this._showBallEvent(runs === 6 ? 'SIX!' : 'FOUR!');
+    }
     this._showRunCounter(runs);
     this._showBoundaryFlash(runs === 6);
     this.sound.playBoundaryCheer(runs === 6);
@@ -473,7 +565,11 @@ export class GameEngine {
     this.scoreManager.addRuns(runs);
     this.scoreManager.addBall();
     this.scoreboard.update(this.scoreManager);
-    if (runs === 0) {
+    if (this._isTwoPlayer && this.scoreManager.isTargetReached()) {
+      this._showBallEvent('TARGET REACHED!');
+      this._showRunCounter(runs);
+      this.sound.playBoundaryCheer(false);
+    } else if (runs === 0) {
       this._showBallEvent('DOT');
       this.sound.playDotBall();
       this.commentary.onDot();
@@ -542,6 +638,32 @@ export class GameEngine {
     const summary = this.scoreManager.getSummary();
     summary.playerName = this._playerName;
 
+    // Two-player: after 1st innings, show innings break instead of final result
+    if (this._isTwoPlayer && this._currentInnings === 1) {
+      this._innings1Summary = summary;
+      this.state = GAME_STATE.INNINGS_BREAK;
+      this.scoreboard.hide();
+      this.shotSelector.hide();
+      this.endGameBtn.style.display = 'none';
+      this.pauseBtn.style.display = 'none';
+      if (this.muteBtn) this.muteBtn.style.display = 'none';
+      if (this.touchController) this.touchController.hide();
+
+      const target = summary.runs + 1;
+      this.ibSummary.textContent = `${this._battingOrder[0]}: ${summary.runs}/${summary.wickets}`;
+      this.ibDetails.textContent = `Overs: ${summary.overs} | RR: ${summary.runRate}`;
+      this.ibTarget.textContent = `Target: ${target} runs`;
+      this.inningsBreak.style.display = 'flex';
+      return;
+    }
+
+    // Two-player: after 2nd innings, show final match result
+    if (this._isTwoPlayer && this._currentInnings === 2) {
+      this._showTwoPlayerResult(summary);
+      return;
+    }
+
+    // Solo mode result
     const { rank, isNew } = this.highScores.submit(summary);
 
     this.finalScoreEl.textContent = `${summary.runs}/${summary.wickets}`;
@@ -572,6 +694,45 @@ export class GameEngine {
     if (this.muteBtn) this.muteBtn.style.display = 'none';
     if (this.touchController) this.touchController.hide();
     this.resultScreen.style.display = 'flex';
+  }
+
+  _showTwoPlayerResult(innings2Summary) {
+    const p1 = this._battingOrder[0];
+    const p2 = this._battingOrder[1];
+    const i1 = this._innings1Summary;
+    const i2 = innings2Summary;
+
+    let headline;
+    if (i2.runs >= i1.runs + 1) {
+      const wicketsLeft = 10 - i2.wickets;
+      headline = `${p2} wins by ${wicketsLeft} wicket${wicketsLeft !== 1 ? 's' : ''}!`;
+    } else if (i2.runs === i1.runs) {
+      headline = 'Match Tied!';
+    } else {
+      const margin = i1.runs - i2.runs;
+      headline = `${p1} wins by ${margin} run${margin !== 1 ? 's' : ''}!`;
+    }
+
+    this.newHsBadge.style.display = 'none';
+    this.resultHighScore.textContent = '';
+    document.querySelector('#result-screen h2').textContent = headline;
+    this.finalScoreEl.textContent = '';
+    this.finalDetailsEl.innerHTML = [
+      `<strong>${p1}:</strong> ${i1.runs}/${i1.wickets} (${i1.overs} ov)`,
+      `RR: ${i1.runRate} | 4s: ${i1.fours} | 6s: ${i1.sixes}`,
+      '',
+      `<strong>${p2}:</strong> ${i2.runs}/${i2.wickets} (${i2.overs} ov)`,
+      `RR: ${i2.runRate} | 4s: ${i2.fours} | 6s: ${i2.sixes}`,
+    ].join('<br>');
+
+    this.scoreboard.hide();
+    this.shotSelector.hide();
+    this.endGameBtn.style.display = 'none';
+    this.pauseBtn.style.display = 'none';
+    if (this.muteBtn) this.muteBtn.style.display = 'none';
+    if (this.touchController) this.touchController.hide();
+    this.resultScreen.style.display = 'flex';
+    this._isTwoPlayer = false;
   }
 
   _triggerSlowMo(duration) {

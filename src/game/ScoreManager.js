@@ -15,6 +15,7 @@ export class ScoreManager {
     this.batsmanBalls = 0;
     this.lastBallResult = '—';
     this.ballLog = [];
+    this._target = null;
   }
 
   addRuns(runs) {
@@ -57,7 +58,25 @@ export class ScoreManager {
     return ((this.batsmanRuns / this.batsmanBalls) * 100).toFixed(1);
   }
 
+  setTarget(target) {
+    this._target = target;
+  }
+
+  getTarget() {
+    return this._target;
+  }
+
+  isTargetReached() {
+    return this._target !== null && this.runs >= this._target;
+  }
+
+  getRunsNeeded() {
+    if (this._target === null) return null;
+    return Math.max(0, this._target - this.runs);
+  }
+
   isInningsOver() {
+    if (this.isTargetReached()) return true;
     return this.wickets >= 10 || this.ballsFaced >= this.totalOvers * 6;
   }
 

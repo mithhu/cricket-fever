@@ -190,27 +190,31 @@ export class PhysicsEngine {
     if (distFromCenter < 5) return 0;
 
     if (!fielders) {
-      if (distFromCenter < 25) return 1;
-      if (distFromCenter < 40) return 2;
+      if (distFromCenter < 20) return 1;
+      if (distFromCenter < 35) return 2;
       return 3;
     }
 
-    // Find nearest fielder to the ball's settled position
-    const { dist: nearestDist } = fielders.getNearestFielder(bx, bz);
+    // Use fielder STARTING positions (snapshot), not current chasing positions
+    const { dist: nearestDist } = fielders.getNearestFielderFromSnapshot(bx, bz);
 
-    // Estimate time for fielder to reach ball (sprint ~8 m/s)
-    const fielderTime = nearestDist / 8;
+    // Estimate how long the nearest fielder needs to reach the ball
+    // Fielder sprint speed ~7 m/s (slightly conservative)
+    const fielderTime = nearestDist / 7;
 
-    // Time per run is ~2.5 seconds for a single between wickets
-    const timePerRun = 2.5;
+    // Time per run ~2.2 seconds for a quick single
+    const timePerRun = 2.2;
 
-    // Runs = how many can be completed before fielder reaches the ball
-    // Subtract ~1s for the throw back
-    const availableTime = Math.max(0, fielderTime - 1.0);
+    // Available time = fielder travel time + ~1s for pickup/throw
+    const availableTime = Math.max(0, fielderTime - 0.5);
     let runs = Math.floor(availableTime / timePerRun);
 
-    // Bonus: ball in a gap (nearest fielder far away) gets extra value
-    if (nearestDist > 30 && distFromCenter > 35) runs = Math.max(runs, 3);
+    // Distance-based minimums: a ball that travels far deserves runs
+    if (distFromCenter > 40 && runs < 2) runs = 2;
+    if (distFromCenter > 25 && runs < 1) runs = 1;
+
+    // Bonus: ball hit into a big gap
+    if (nearestDist > 25 && distFromCenter > 30) runs = Math.max(runs, 3);
 
     return clamp(runs, 0, 3);
   }

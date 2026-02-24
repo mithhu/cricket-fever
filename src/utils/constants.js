@@ -46,6 +46,8 @@ export const GAME_STATE = {
   BATTING: 'BATTING',       // bat-ball contact, ball traveling after shot
   BALL_DONE: 'BALL_DONE',   // ball settled, scoring
   RESULT: 'RESULT',
+  TOSS: 'TOSS',             // two-player: showing toss result
+  INNINGS_BREAK: 'INNINGS_BREAK', // two-player: between innings
 };
 
 // Timing windows (seconds relative to ball arriving at batsman)
