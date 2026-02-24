@@ -48,6 +48,7 @@ export class RoomManager {
       ],
       session: null,
       state: 'waiting',
+      _ballResultPending: false,
     };
 
     this.rooms.set(code, room);
@@ -173,6 +174,7 @@ export class RoomManager {
   }
 
   _requestNewBall(room) {
+    room._ballResultPending = false;
     const session = room.session;
     session.resetBall();
 
@@ -230,6 +232,8 @@ export class RoomManager {
     if (!code) return;
     const room = this.rooms.get(code);
     if (!room || !room.session) return;
+    if (room._ballResultPending) return;
+    room._ballResultPending = true;
     this.handleBallResult(room, data);
   }
 

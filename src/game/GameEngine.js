@@ -47,6 +47,7 @@ export class GameEngine {
     this._onlineBatterName = null;
     this._onlineBowlerName = null;
     this.networkManager = null;
+    this._onlineBallResultSent = false;
     this.onlineNoticeEl = document.getElementById('online-notice');
 
     this.state = GAME_STATE.MENU;
@@ -755,6 +756,7 @@ export class GameEngine {
   _handleBoundary(runs) {
     if (this._isOnline) {
       this._sendOnlineBallResult(runs, false, null, true);
+      this._finishBall();
       return;
     }
     this.scoreManager.addRuns(runs);
@@ -778,6 +780,7 @@ export class GameEngine {
   _handleRuns(runs) {
     if (this._isOnline) {
       this._sendOnlineBallResult(runs, false, null, false);
+      this._finishBall();
       return;
     }
     this.scoreManager.addRuns(runs);
@@ -804,6 +807,7 @@ export class GameEngine {
   _handleDotBall() {
     if (this._isOnline) {
       this._sendOnlineBallResult(0, false, null, false);
+      this._finishBall();
       return;
     }
     this.scoreManager.addRuns(0);
@@ -820,6 +824,7 @@ export class GameEngine {
   _handleWicket(type) {
     if (this._isOnline) {
       this._sendOnlineBallResult(0, true, type, false);
+      this._finishBall();
       return;
     }
     this.scoreManager.addWicket(type);
@@ -845,8 +850,9 @@ export class GameEngine {
 
   _sendOnlineBallResult(runs, wicket, wicketType, isBoundary) {
     if (!this.networkManager) return;
-    // Only the batter's client reports ball results to avoid double-counting
     if (this._onlineRole !== 'batter') return;
+    if (this._onlineBallResultSent) return;
+    this._onlineBallResultSent = true;
     this.networkManager.sendBallResult({ runs, wicket, wicketType, isBoundary });
   }
 
@@ -1066,6 +1072,7 @@ export class GameEngine {
     this._onlineBatterName = batterName;
     this._onlineBowlerName = bowlerName;
     this._paused = false;
+    this._onlineBallResultSent = false;
     this.pauseOverlay.style.display = 'none';
     this.pauseBtn.textContent = 'Pause';
     this._lastOvers = overs;
@@ -1106,6 +1113,7 @@ export class GameEngine {
   }
 
   onlineNewBall(data) {
+    this._onlineBallResultSent = false;
     // Sync score from server on each new ball
     if (data && data.score) {
       const score = data.score;
