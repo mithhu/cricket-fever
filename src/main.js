@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GAME_MODE } from './utils/constants.js';
 import { Stadium } from './scene/Stadium.js';
 import { Pitch } from './scene/Pitch.js';
 import { GameCamera } from './scene/Camera.js';
@@ -11,6 +12,7 @@ import { Scoreboard } from './ui/Scoreboard.js';
 import { MainMenu } from './ui/MainMenu.js';
 import { ShotSelector } from './ui/ShotSelector.js';
 import { TouchController } from './game/TouchController.js';
+import { BowlingMarker } from './ui/BowlingMarker.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -49,6 +51,10 @@ const gameEngine = new GameEngine({
 const touchController = new TouchController(gameEngine.input);
 gameEngine.touchController = touchController;
 
+const bowlingMarker = new BowlingMarker(scene);
+bowlingMarker.wireUI();
+gameEngine.bowlingMarker = bowlingMarker;
+
 gameEngine.highScores.renderToMenu();
 mainMenu.setBestScores(gameEngine.highScores.getBestByPlayer());
 mainMenu.renderCards();
@@ -56,6 +62,21 @@ mainMenu.renderCards();
 mainMenu.onStart((overs, playerName, difficulty) => {
   mainMenu.hide();
   gameEngine.startMatch(overs, playerName, difficulty);
+});
+
+mainMenu.onModeStart((overs, playerName, difficulty, mode) => {
+  mainMenu.hide();
+  const modeMap = {
+    bat_only: GAME_MODE.BAT_ONLY,
+    bowl_only: GAME_MODE.BOWL_ONLY,
+    full_match: GAME_MODE.FULL_MATCH,
+  };
+  const gameMode = modeMap[mode] || GAME_MODE.BAT_ONLY;
+  if (gameMode === GAME_MODE.BAT_ONLY) {
+    gameEngine.startMatch(overs, playerName, difficulty, gameMode);
+  } else {
+    gameEngine.startModeMatch(overs, playerName, difficulty, gameMode);
+  }
 });
 
 mainMenu.on2PlayerStart((overs, player1, player2, difficulty) => {

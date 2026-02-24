@@ -516,6 +516,83 @@
       color: #fff; box-shadow: 0 0 12px rgba(100,200,100,0.3);
     }
 
+    /* Game Mode Selector */
+    #mode-select {
+      display: flex; flex-direction: column; align-items: center;
+      margin-bottom: 16px;
+    }
+    #mode-select .section-label {
+      font-size: 12px; color: #8ab4a0; text-transform: uppercase;
+      letter-spacing: 3px; margin-bottom: 10px;
+    }
+    #mode-btns {
+      display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    }
+    #main-menu .mode-btn {
+      padding: 8px 20px; font-size: 13px; font-weight: 600;
+      background: rgba(255,255,255,0.06); color: #8ab4a0;
+      border: 2px solid rgba(138,180,160,0.25); border-radius: 24px;
+      cursor: pointer; transition: all 0.25s; text-transform: uppercase;
+      letter-spacing: 1px; font-family: inherit; margin: 0;
+    }
+    #main-menu .mode-btn:hover {
+      background: rgba(240,192,64,0.08); border-color: rgba(240,192,64,0.4);
+    }
+    #main-menu .mode-btn.selected {
+      background: rgba(240,192,64,0.15); border-color: rgba(240,192,64,0.7);
+      color: #f0c040; box-shadow: 0 0 12px rgba(240,192,64,0.15);
+    }
+
+    /* Overs selector */
+    #overs-select {
+      display: flex; gap: 8px; margin-bottom: 10px;
+    }
+
+    /* Bowling HUD */
+    #bowling-speed-bar {
+      position: absolute; bottom: 30px; right: 40px;
+      display: none; width: 12px; height: 120px;
+      background: rgba(255,255,255,0.1); border-radius: 6px;
+      overflow: hidden; pointer-events: none; border: 1px solid rgba(255,255,255,0.2);
+    }
+    #bowling-speed-fill {
+      position: absolute; bottom: 0; left: 0; width: 100%;
+      border-radius: 6px;
+      transition: height 0.05s linear, background 0.1s;
+    }
+    #bowling-speed-label {
+      position: absolute; bottom: 155px; right: 25px;
+      display: none; font-size: 14px; font-weight: 700; color: #f0c040;
+      pointer-events: none; text-align: center; min-width: 60px;
+    }
+    #bowling-aim-hint {
+      position: absolute; bottom: 190px; left: 50%; transform: translateX(-50%);
+      display: none; font-size: 16px; font-weight: 700; color: #fff;
+      background: rgba(10,15,30,0.8); padding: 8px 24px; border-radius: 12px;
+      border: 1px solid rgba(240,192,64,0.3); pointer-events: none;
+      text-align: center; white-space: nowrap;
+    }
+
+    /* Bowler figures in scoreboard */
+    .score-value.bowler { color: #8bc4f0; font-size: 20px; }
+
+    /* Full match toss choice buttons */
+    #toss-choice {
+      display: flex; gap: 12px; margin-top: 16px;
+    }
+    #toss-choice button {
+      padding: 12px 36px; font-size: 16px; font-weight: 700;
+      border: none; border-radius: 50px; cursor: pointer;
+      transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px;
+    }
+    #toss-choice .btn-bat-first {
+      background: linear-gradient(135deg, #f0c040, #e6a020); color: #1a1a2e;
+    }
+    #toss-choice .btn-bowl-first {
+      background: linear-gradient(135deg, #4090f0, #2060c0); color: #fff;
+    }
+    #toss-choice button:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(240,192,64,0.3); }
+
     /* Two-Player Selection */
     #two-player-select {
       display: none; flex-direction: column; align-items: center;
@@ -649,6 +726,9 @@
       .tp-slot { max-width: 100%; width: 100%; }
       #toss-screen h2 { font-size: 28px; }
       #innings-break h2 { font-size: 28px; }
+      #mode-btns { gap: 6px; }
+      .mode-btn { padding: 6px 14px !important; font-size: 11px !important; }
+      #bowling-aim-hint { bottom: 240px; font-size: 13px; }
     }
 
     @media (max-width: 480px) {
@@ -693,8 +773,18 @@
           <button class="diff-btn" data-diff="hard">Hard</button>
         </div>
       </div>
-      <button id="btn-start-5">Quick Match (5 Overs)</button>
-      <button id="btn-start-10">Quick Match (10 Overs)</button>
+      <div id="mode-select">
+        <div class="section-label">Game Mode</div>
+        <div id="mode-btns">
+          <button class="mode-btn selected" data-mode="bat_only">Bat Only</button>
+          <button class="mode-btn" data-mode="bowl_only">Bowl Only</button>
+          <button class="mode-btn" data-mode="full_match">Full Match</button>
+        </div>
+      </div>
+      <div id="overs-select">
+        <button id="btn-start-5">Start (5 Overs)</button>
+        <button id="btn-start-10">Start (10 Overs)</button>
+      </div>
       <button id="btn-two-player">2 Player Match</button>
 
       <!-- Two-Player Selection (hidden by default, shown when btn-two-player clicked) -->
@@ -728,8 +818,9 @@
       </div>
 
       <div class="menu-info" id="menu-controls-info">
-        W — Drive &nbsp;|&nbsp; A — Cut &nbsp;|&nbsp; D — Pull &nbsp;|&nbsp; S — Block &nbsp;|&nbsp; Q — Sweep &nbsp;|&nbsp; E — Lofted Drive<br>
-        Hold SHIFT + Key — Lofted Shot &nbsp;|&nbsp; Arrow Keys — Move in Crease
+        <strong>Batting:</strong> W — Drive &nbsp;|&nbsp; A — Cut &nbsp;|&nbsp; D — Pull &nbsp;|&nbsp; S — Block &nbsp;|&nbsp; Q — Sweep &nbsp;|&nbsp; E — Lofted Drive<br>
+        Hold SHIFT + Key — Lofted Shot &nbsp;|&nbsp; Arrow Keys — Move in Crease<br>
+        <strong>Bowling:</strong> SPACE — Set Line → Length → Speed
       </div>
       <div id="high-scores">
         <h3>High Scores</h3>
@@ -745,6 +836,7 @@
         <div class="score-item"><div class="score-label">Run Rate</div><div class="score-value" id="sc-rr">0.00</div></div>
         <div class="score-item"><div class="score-label">Batsman</div><div class="score-value" id="sc-batsman">0 (0)</div></div>
         <div class="score-item"><div class="score-label">Last Ball</div><div class="score-value" id="sc-last">—</div></div>
+        <div class="score-item" id="sc-bowler-wrap" style="display:none;"><div class="score-label">Bowler</div><div class="score-value bowler" id="sc-bowler">0/0</div></div>
         <div class="score-item" id="sc-target-wrap" style="display:none;"><div class="score-label">Target</div><div class="score-value target" id="sc-target">—</div></div>
       </div>
     </div>
@@ -755,6 +847,10 @@
       <h2 id="toss-title">Toss Result</h2>
       <div class="toss-detail" id="toss-detail">Player bats first</div>
       <button id="btn-toss-continue">Continue</button>
+      <div id="toss-choice" style="display:none;">
+        <button class="btn-bat-first" id="btn-bat-first">Bat First</button>
+        <button class="btn-bowl-first" id="btn-bowl-first">Bowl First</button>
+      </div>
     </div>
 
     <!-- Innings Break -->
@@ -770,7 +866,7 @@
     <div id="shot-indicator"><div class="shot-text" id="shot-text">Straight Drive</div></div>
 
     <!-- Controls Hint -->
-    <div id="controls-hint">W: Drive &nbsp; A: Cut &nbsp; D: Pull &nbsp; S: Block &nbsp; Q: Sweep &nbsp; E: Loft Drive &nbsp; | &nbsp; SHIFT: Lofted &nbsp; | &nbsp; Arrows: Move</div>
+    <div id="controls-hint">Batting: W/A/D/S/Q/E + SHIFT | Bowling: SPACE × 3 (Line → Length → Speed) | Arrows: Move</div>
 
     <!-- Match buttons (visible during match) -->
     <button id="btn-mute">Mute</button>
@@ -823,6 +919,11 @@
 
     <!-- Run Counter -->
     <div id="run-counter"></div>
+
+    <!-- Bowling HUD -->
+    <div id="bowling-speed-label">0 km/h</div>
+    <div id="bowling-speed-bar"><div id="bowling-speed-fill"></div></div>
+    <div id="bowling-aim-hint"></div>
 
     <!-- Ball Event Popup -->
     <div id="ball-event"></div>

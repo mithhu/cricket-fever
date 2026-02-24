@@ -44,6 +44,13 @@ export class TouchController {
   show() {
     if (!this._isTouchDevice) return;
     this.controlsEl.style.display = 'block';
+    this._showBattingControls();
+  }
+
+  showBowling() {
+    if (!this._isTouchDevice) return;
+    this.controlsEl.style.display = 'block';
+    this._showBowlingControls();
   }
 
   hide() {
@@ -51,6 +58,45 @@ export class TouchController {
     this._activeDirections.clear();
     this._lofted = false;
     this.loftedBtn.classList.remove('active');
+    this._hideBowlBtn();
+  }
+
+  _showBattingControls() {
+    const shots = this.controlsEl.querySelectorAll('.shot-btn, .shot-btn-extra');
+    shots.forEach((b) => b.style.display = '');
+    this.loftedBtn.style.display = '';
+    this._hideBowlBtn();
+  }
+
+  _showBowlingControls() {
+    const shots = this.controlsEl.querySelectorAll('.shot-btn, .shot-btn-extra');
+    shots.forEach((b) => b.style.display = 'none');
+    this.loftedBtn.style.display = 'none';
+    this._showBowlBtn();
+  }
+
+  _showBowlBtn() {
+    if (!this._bowlBtn) {
+      this._bowlBtn = document.createElement('button');
+      this._bowlBtn.className = 'shot-btn bowl-btn';
+      this._bowlBtn.textContent = 'BOWL';
+      this._bowlBtn.style.cssText = 'position:absolute;bottom:30px;right:20px;width:80px;height:80px;border-radius:50%;font-size:16px;font-weight:700;background:rgba(64,144,240,0.7);color:#fff;border:2px solid rgba(255,255,255,0.4);z-index:20;';
+      this._bowlBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        this.input._bowlTriggered = true;
+        this._bowlBtn.classList.add('pressed');
+      }, { passive: false });
+      this._bowlBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        this._bowlBtn.classList.remove('pressed');
+      }, { passive: false });
+      this.controlsEl.appendChild(this._bowlBtn);
+    }
+    this._bowlBtn.style.display = 'block';
+  }
+
+  _hideBowlBtn() {
+    if (this._bowlBtn) this._bowlBtn.style.display = 'none';
   }
 
   _bindDpad() {

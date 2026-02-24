@@ -38,16 +38,25 @@ export const SHOTS = {
   LOFTED_DRIVE: 'lofted_drive',
 };
 
+// Game modes
+export const GAME_MODE = {
+  BAT_ONLY: 'BAT_ONLY',
+  BOWL_ONLY: 'BOWL_ONLY',
+  FULL_MATCH: 'FULL_MATCH',
+  TWO_PLAYER: 'TWO_PLAYER',
+};
+
 // Game states
 export const GAME_STATE = {
   MENU: 'MENU',
   WAITING: 'WAITING',       // waiting for bowler run-up
+  AIMING: 'AIMING',         // player bowling: aiming marker on pitch
   BOWLING: 'BOWLING',       // ball in air toward batsman
   BATTING: 'BATTING',       // bat-ball contact, ball traveling after shot
   BALL_DONE: 'BALL_DONE',   // ball settled, scoring
   RESULT: 'RESULT',
-  TOSS: 'TOSS',             // two-player: showing toss result
-  INNINGS_BREAK: 'INNINGS_BREAK', // two-player: between innings
+  TOSS: 'TOSS',             // showing toss result
+  INNINGS_BREAK: 'INNINGS_BREAK', // between innings
 };
 
 // Timing windows (seconds relative to ball arriving at batsman)

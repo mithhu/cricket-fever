@@ -8,7 +8,10 @@ export class Scoreboard {
     this.lastEl = document.getElementById('sc-last');
     this.targetWrap = document.getElementById('sc-target-wrap');
     this.targetEl = document.getElementById('sc-target');
+    this.bowlerWrap = document.getElementById('sc-bowler-wrap');
+    this.bowlerEl = document.getElementById('sc-bowler');
     this._playerName = '';
+    this._isBowling = false;
   }
 
   setPlayerName(name) {
@@ -28,9 +31,17 @@ export class Scoreboard {
     this.el.style.display = 'flex';
   }
 
+  setBowling(isBowling) {
+    this._isBowling = isBowling;
+    if (this.bowlerWrap) {
+      this.bowlerWrap.style.display = isBowling ? '' : 'none';
+    }
+  }
+
   hide() {
     this.el.style.display = 'none';
     this.setTarget(null);
+    this.setBowling(false);
   }
 
   update(scoreManager) {
@@ -44,6 +55,10 @@ export class Scoreboard {
     const needed = scoreManager.getRunsNeeded();
     if (needed !== null) {
       this.targetEl.textContent = `${needed} needed`;
+    }
+
+    if (this._isBowling && this.bowlerEl) {
+      this.bowlerEl.textContent = `${scoreManager.getBowlerFigures()} (${scoreManager.getBowlerOversString()})`;
     }
   }
 }

@@ -16,8 +16,10 @@ export class MainMenu {
 
     this._onStart = null;
     this._on2PlayerStart = null;
+    this._onModeStart = null;
     this._selectedName = null;
     this._selectedDifficulty = 'medium';
+    this._selectedMode = 'bat_only';
     this._players = this._loadPlayers();
     this._bestScores = {};
 
@@ -44,6 +46,15 @@ export class MainMenu {
       });
     });
 
+    // Mode buttons
+    this._modeBtns = document.querySelectorAll('#mode-btns .mode-btn');
+    this._modeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this._selectedMode = btn.dataset.mode;
+        this._modeBtns.forEach((b) => b.classList.toggle('selected', b === btn));
+      });
+    });
+
     this.newPlayerBtn.addEventListener('click', () => this._showNewPlayerForm());
     this.addPlayerBtn.addEventListener('click', () => this._addPlayer());
     this.cancelPlayerBtn.addEventListener('click', () => this._hideNewPlayerForm());
@@ -67,7 +78,8 @@ export class MainMenu {
     this._soloElements = [
       document.getElementById('player-select'),
       document.getElementById('difficulty-select'),
-      this.btn5, this.btn10,
+      document.getElementById('mode-select'),
+      document.getElementById('overs-select'),
     ];
 
     this._tpSlot1.addEventListener('click', () => {
@@ -223,7 +235,11 @@ export class MainMenu {
     }
 
     this._saveLastPlayer(this._selectedName);
-    if (this._onStart) this._onStart(overs, this._selectedName, this._selectedDifficulty);
+    if (this._onModeStart) {
+      this._onModeStart(overs, this._selectedName, this._selectedDifficulty, this._selectedMode);
+    } else if (this._onStart) {
+      this._onStart(overs, this._selectedName, this._selectedDifficulty);
+    }
   }
 
   onStart(callback) {
@@ -234,6 +250,10 @@ export class MainMenu {
 
   on2PlayerStart(callback) {
     this._on2PlayerStart = callback;
+  }
+
+  onModeStart(callback) {
+    this._onModeStart = callback;
   }
 
   getPlayerName() {
@@ -266,7 +286,7 @@ export class MainMenu {
   _showSoloMode() {
     this._tpSelectEl.style.display = 'none';
     this._soloElements.forEach((el) => {
-      if (el) el.style.display = el.tagName === 'BUTTON' ? '' : 'flex';
+      if (el) el.style.display = 'flex';
     });
     document.getElementById('btn-two-player').style.display = '';
   }

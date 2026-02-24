@@ -16,6 +16,13 @@ export class ScoreManager {
     this.lastBallResult = '—';
     this.ballLog = [];
     this._target = null;
+
+    // Bowling stats (used when player is bowling)
+    this.bowlerBalls = 0;
+    this.bowlerRunsConceded = 0;
+    this.bowlerWickets = 0;
+    this.bowlerMaidens = 0;
+    this._currentOverRuns = 0;
   }
 
   addRuns(runs) {
@@ -80,6 +87,36 @@ export class ScoreManager {
     return this.wickets >= 10 || this.ballsFaced >= this.totalOvers * 6;
   }
 
+  addBowlerBall(runsConceded) {
+    this.bowlerBalls++;
+    this.bowlerRunsConceded += runsConceded;
+    this._currentOverRuns += runsConceded;
+    if (this.bowlerBalls % 6 === 0) {
+      if (this._currentOverRuns === 0) this.bowlerMaidens++;
+      this._currentOverRuns = 0;
+    }
+  }
+
+  addBowlerWicket() {
+    this.bowlerWickets++;
+  }
+
+  getBowlerOversString() {
+    const completed = Math.floor(this.bowlerBalls / 6);
+    const partial = this.bowlerBalls % 6;
+    return `${completed}.${partial}`;
+  }
+
+  getBowlerEconomy() {
+    const overs = this.bowlerBalls / 6;
+    if (overs === 0) return '0.00';
+    return (this.bowlerRunsConceded / overs).toFixed(2);
+  }
+
+  getBowlerFigures() {
+    return `${this.bowlerWickets}/${this.bowlerRunsConceded}`;
+  }
+
   getSummary() {
     return {
       runs: this.runs,
@@ -90,6 +127,10 @@ export class ScoreManager {
       sixes: this.sixes,
       balls: this.ballsFaced,
       strikeRate: ((this.runs / Math.max(this.ballsFaced, 1)) * 100).toFixed(1),
+      bowlerFigures: this.getBowlerFigures(),
+      bowlerOvers: this.getBowlerOversString(),
+      bowlerEconomy: this.getBowlerEconomy(),
+      bowlerMaidens: this.bowlerMaidens,
     };
   }
 }

@@ -7,6 +7,7 @@ export class InputManager {
     this._shotTriggered = false;
     this._lofted = false;
     this._shiftDown = false;
+    this._bowlTriggered = false;
 
     window.addEventListener('keydown', (e) => this._onKeyDown(e));
     window.addEventListener('keyup', (e) => this._onKeyUp(e));
@@ -67,6 +68,7 @@ export class InputManager {
         break;
       case 'Space':
         this._shotTriggered = true;
+        this._bowlTriggered = true;
         this._lofted = lofted;
         e.preventDefault();
         break;
@@ -114,8 +116,17 @@ export class InputManager {
     return { x, z };
   }
 
+  consumeBowlTrigger() {
+    if (this._bowlTriggered) {
+      this._bowlTriggered = false;
+      return true;
+    }
+    return false;
+  }
+
   reset() {
     this._shotTriggered = false;
+    this._bowlTriggered = false;
     this._lofted = false;
   }
 }

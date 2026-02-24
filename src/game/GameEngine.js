@@ -1,8 +1,9 @@
-import { GAME_STATE, SHOTS } from '../utils/constants.js';
+import { GAME_STATE, GAME_MODE } from '../utils/constants.js';
 import { PhysicsEngine } from './PhysicsEngine.js';
 import { ScoreManager } from './ScoreManager.js';
 import { InputManager } from './InputManager.js';
 import { AIBowler } from '../ai/AIBowler.js';
+import { AIBatsman } from '../ai/AIBatsman.js';
 import { HighScoreManager } from './HighScoreManager.js';
 import { SoundManager } from '../audio/SoundManager.js';
 import { Commentary } from '../ui/Commentary.js';
@@ -24,11 +25,20 @@ export class GameEngine {
     this.physics = new PhysicsEngine();
     this.input = new InputManager();
     this.aiBowler = new AIBowler();
+    this.aiBatsman = new AIBatsman();
     this.highScores = new HighScoreManager();
     this.sound = new SoundManager();
     this.commentary = new Commentary();
     this.scoreManager = null;
     this._bouncePlayed = false;
+    this.bowlingMarker = null;
+
+    // Game mode tracking
+    this._gameMode = GAME_MODE.BAT_ONLY;
+    this._isPlayerBowling = false;
+    this._fullMatchInnings = 0;
+    this._fullMatchFirstChoice = null;
+    this._fullMatchInnings1Summary = null;
 
     this.state = GAME_STATE.MENU;
     this._waitTimer = 0;
@@ -95,11 +105,19 @@ export class GameEngine {
     this.tossContinueBtn.addEventListener('click', () => this._onTossContinue());
     this.ibContinueBtn.addEventListener('click', () => this._onInningsBreakContinue());
 
+    this.tossChoiceEl = document.getElementById('toss-choice');
+    this.btnBatFirst = document.getElementById('btn-bat-first');
+    this.btnBowlFirst = document.getElementById('btn-bowl-first');
+    this.btnBatFirst.addEventListener('click', () => this._onFullMatchTossChoice('bat'));
+    this.btnBowlFirst.addEventListener('click', () => this._onFullMatchTossChoice('bowl'));
+
     this.playAgainBtn.addEventListener('click', () => {
       this.resultScreen.style.display = 'none';
       document.querySelector('#result-screen h2').textContent = 'INNINGS OVER';
       if (this._wasTwoPlayer) {
         this.startTwoPlayerMatch(this._lastOvers, this._player1Name, this._player2Name, this._difficulty);
+      } else if (this._gameMode === GAME_MODE.FULL_MATCH || this._gameMode === GAME_MODE.BOWL_ONLY) {
+        this.startModeMatch(this._lastOvers, this._playerName, this._difficulty, this._gameMode);
       } else {
         this.startMatch(this._lastOvers, this._playerName, this._difficulty);
       }
@@ -144,8 +162,12 @@ export class GameEngine {
     }
   }
 
-  startMatch(overs, playerName, difficulty) {
+  startMatch(overs, playerName, difficulty, gameMode) {
     if (!this._isTwoPlayer) this._wasTwoPlayer = false;
+    if (gameMode) this._gameMode = gameMode;
+    this._isPlayerBowling = (this._gameMode === GAME_MODE.BOWL_ONLY) ||
+      (this._gameMode === GAME_MODE.FULL_MATCH && this._fullMatchFirstChoice === 'bowl' && this._fullMatchInnings === 1) ||
+      (this._gameMode === GAME_MODE.FULL_MATCH && this._fullMatchFirstChoice === 'bat' && this._fullMatchInnings === 2);
     this._paused = false;
     this.pauseOverlay.style.display = 'none';
     this.pauseBtn.textContent = 'Pause';
@@ -153,13 +175,19 @@ export class GameEngine {
     this._playerName = playerName || 'Unknown';
     this._difficulty = difficulty || 'medium';
     this.aiBowler.setDifficulty(this._difficulty);
+    this.aiBatsman.setDifficulty(this._difficulty);
     this.fielders.setDifficulty(this._difficulty);
     this.scoreManager = new ScoreManager(overs);
     this.state = GAME_STATE.WAITING;
     this._waitTimer = 0;
-    this.scoreboard.setPlayerName(this._playerName);
+    this.scoreboard.setPlayerName(this._isPlayerBowling ? 'AI' : this._playerName);
     this.scoreboard.show();
-    this.shotSelector.show();
+    this.scoreboard.setBowling(this._isPlayerBowling);
+    if (this._isPlayerBowling) {
+      this.shotSelector.hide();
+    } else {
+      this.shotSelector.show();
+    }
     this.endGameBtn.style.display = 'block';
     this.pauseBtn.style.display = 'block';
     if (this.muteBtn) this.muteBtn.style.display = 'block';
@@ -170,8 +198,45 @@ export class GameEngine {
     this.fielders.returnToPositions();
     this.gameCamera.resetForNewBall();
     this.sound.startAmbientCrowd();
-    if (this.touchController) this.touchController.show();
+    if (this.touchController) {
+      if (this._isPlayerBowling) {
+        this.touchController.showBowling();
+      } else {
+        this.touchController.show();
+      }
+    }
     this._startNewBall();
+  }
+
+  startModeMatch(overs, playerName, difficulty, mode) {
+    this._gameMode = mode;
+    this._lastOvers = overs;
+    this._playerName = playerName;
+    this._difficulty = difficulty;
+
+    if (mode === GAME_MODE.FULL_MATCH) {
+      this._fullMatchInnings = 0;
+      this._fullMatchInnings1Summary = null;
+      this._fullMatchFirstChoice = null;
+      this.state = GAME_STATE.TOSS;
+      this.tossTitle.textContent = 'You won the toss!';
+      this.tossDetail.textContent = 'Choose to bat or bowl first';
+      this.tossContinueBtn.style.display = 'none';
+      this.tossChoiceEl.style.display = 'flex';
+      this.tossScreen.style.display = 'flex';
+      return;
+    }
+
+    this.startMatch(overs, playerName, difficulty, mode);
+  }
+
+  _onFullMatchTossChoice(choice) {
+    this._fullMatchFirstChoice = choice;
+    this._fullMatchInnings = 1;
+    this.tossScreen.style.display = 'none';
+    this.tossChoiceEl.style.display = 'none';
+    this.tossContinueBtn.style.display = '';
+    this.startMatch(this._lastOvers, this._playerName, this._difficulty, GAME_MODE.FULL_MATCH);
   }
 
   startTwoPlayerMatch(overs, player1, player2, difficulty) {
@@ -204,6 +269,18 @@ export class GameEngine {
 
   _onInningsBreakContinue() {
     this.inningsBreak.style.display = 'none';
+
+    // Full match innings break
+    if (this._gameMode === GAME_MODE.FULL_MATCH && this._fullMatchInnings === 1) {
+      this._fullMatchInnings = 2;
+      const target = this._fullMatchInnings1Summary.runs + 1;
+      this.startMatch(this._lastOvers, this._playerName, this._difficulty, GAME_MODE.FULL_MATCH);
+      this.scoreManager.setTarget(target);
+      this.scoreboard.setTarget(target);
+      return;
+    }
+
+    // Two-player innings break
     this._currentInnings = 2;
     const batter = this._battingOrder[1];
     const target = this._innings1Summary.runs + 1;
@@ -213,8 +290,6 @@ export class GameEngine {
   }
 
   _startNewBall() {
-    this.state = GAME_STATE.WAITING;
-    this._waitTimer = 0;
     this._shotPlayed = false;
     this._shotResult = null;
     this._ballSettleTimer = 0;
@@ -228,14 +303,28 @@ export class GameEngine {
     if (this.pitch) this.pitch.resetBails();
     this.batsman.resetPose();
     this.input.reset();
+    this.aiBatsman.reset();
     this.gameCamera.resetForNewBall();
     this.fielders.returnToPositions();
+
+    if (this._isPlayerBowling) {
+      this.state = GAME_STATE.AIMING;
+      this._waitTimer = 0;
+      if (this.bowlingMarker) {
+        this.bowlingMarker.setDifficulty(this._difficulty);
+        this.bowlingMarker.start();
+      }
+    } else {
+      this.state = GAME_STATE.WAITING;
+      this._waitTimer = 0;
+    }
   }
 
   _endGameEarly() {
     this.ball.reset();
     this.bowler.resetPosition();
     this.batsman.resetPose();
+    if (this.bowlingMarker) this.bowlingMarker.stop();
     this._showResult();
   }
 
@@ -243,6 +332,10 @@ export class GameEngine {
     this.state = GAME_STATE.MENU;
     this._isTwoPlayer = false;
     this._wasTwoPlayer = false;
+    this._gameMode = GAME_MODE.BAT_ONLY;
+    this._isPlayerBowling = false;
+    this._fullMatchInnings = 0;
+    if (this.bowlingMarker) this.bowlingMarker.stop();
     this.sound.stopAmbientCrowd();
     this.resultScreen.style.display = 'none';
     this.tossScreen.style.display = 'none';
@@ -287,6 +380,10 @@ export class GameEngine {
       case GAME_STATE.INNINGS_BREAK:
         break;
 
+      case GAME_STATE.AIMING:
+        this._updateAiming(dt);
+        break;
+
       case GAME_STATE.WAITING: {
         this._waitTimer += dt;
         this.shotSelector.update(this.input.getShotDirection(), dt);
@@ -326,25 +423,61 @@ export class GameEngine {
     }
   }
 
+  _updateAiming(dt) {
+    if (!this.bowlingMarker) return;
+    this.bowlingMarker.update(dt);
+
+    if (this.input.consumeBowlTrigger()) {
+      this.bowlingMarker.onSpacePressed();
+    }
+
+    if (this.bowlingMarker.isDone()) {
+      this._playerBowlData = this.bowlingMarker.consumeResult();
+      this._beginBowling();
+    }
+  }
+
   _beginBowling() {
     this.state = GAME_STATE.BOWLING;
     this._ballTimer = 0;
     this._shotPlayed = false;
 
-    this.bowler.startBowling((releasePos) => {
-      this._deliveryData = this.aiBowler.generateDelivery(releasePos);
-      this.ball.launch(releasePos, this._deliveryData.velocity);
-      this.sound.playBowlRelease();
-    });
+    if (this._isPlayerBowling && this._playerBowlData) {
+      const data = this._playerBowlData;
+      this.bowler.startBowling((releasePos) => {
+        this._deliveryData = this.aiBowler._calculateTrajectory(
+          releasePos, data.speed, data.line,
+          this._lengthZToFactor(data.length), 0
+        );
+        this.ball.launch(releasePos, this._deliveryData.velocity);
+        this.sound.playBowlRelease();
+      });
+      this._playerBowlData = null;
+    } else {
+      this.bowler.startBowling((releasePos) => {
+        this._deliveryData = this.aiBowler.generateDelivery(releasePos);
+        this.ball.launch(releasePos, this._deliveryData.velocity);
+        this.sound.playBowlRelease();
+      });
+    }
+  }
+
+  _lengthZToFactor(z) {
+    const min = -6.5;
+    const max = 8.5;
+    return Math.max(0.2, Math.min(0.9, (z - min) / (max - min)));
   }
 
   _updateBowling(dt) {
     this.bowler.update(dt);
     this.ball.update(dt);
     this.batsman.update(dt);
-    this.shotSelector.update(this.input.getShotDirection(), dt);
 
-    if (!this._shotPlayed) {
+    if (!this._isPlayerBowling) {
+      this.shotSelector.update(this.input.getShotDirection(), dt);
+    }
+
+    if (!this._shotPlayed && !this._isPlayerBowling) {
       const mov = this.input.getMovement();
       if (mov.x !== 0 || mov.z !== 0) {
         this.batsman.moveInCrease(mov.x, mov.z, dt);
@@ -360,13 +493,17 @@ export class GameEngine {
     }
 
     if (!this._shotPlayed) {
-      const trigger = this.input.consumeShotTrigger();
-      if (trigger) {
-        if (this.ball.active) {
-          this._attemptShot(trigger);
-        } else {
-          this.batsman.playShot(trigger.shot);
-          this._shotPlayed = false;
+      if (this._isPlayerBowling) {
+        this._updateAIBatting();
+      } else {
+        const trigger = this.input.consumeShotTrigger();
+        if (trigger) {
+          if (this.ball.active) {
+            this._attemptShot(trigger);
+          } else {
+            this.batsman.playShot(trigger.shot);
+            this._shotPlayed = false;
+          }
         }
       }
     }
@@ -384,6 +521,14 @@ export class GameEngine {
 
     if (this.ball.active && this.ball.hasBeenHit) {
       this.state = GAME_STATE.BATTING;
+    }
+  }
+
+  _updateAIBatting() {
+    if (!this.ball.active) return;
+    const decision = this.aiBatsman.tryDecide(this.ball);
+    if (decision) {
+      this._attemptShot({ shot: decision.shot, lofted: decision.lofted });
     }
   }
 
@@ -546,6 +691,7 @@ export class GameEngine {
   _handleBoundary(runs) {
     this.scoreManager.addRuns(runs);
     this.scoreManager.addBall();
+    if (this._isPlayerBowling) this.scoreManager.addBowlerBall(runs);
     this.scoreboard.update(this.scoreManager);
     if (this._isTwoPlayer && this.scoreManager.isTargetReached()) {
       this._showBallEvent('TARGET REACHED!');
@@ -564,6 +710,7 @@ export class GameEngine {
   _handleRuns(runs) {
     this.scoreManager.addRuns(runs);
     this.scoreManager.addBall();
+    if (this._isPlayerBowling) this.scoreManager.addBowlerBall(runs);
     this.scoreboard.update(this.scoreManager);
     if (this._isTwoPlayer && this.scoreManager.isTargetReached()) {
       this._showBallEvent('TARGET REACHED!');
@@ -585,6 +732,7 @@ export class GameEngine {
   _handleDotBall() {
     this.scoreManager.addRuns(0);
     this.scoreManager.addBall();
+    if (this._isPlayerBowling) this.scoreManager.addBowlerBall(0);
     this.scoreManager.lastBallResult = 'dot';
     this.scoreboard.update(this.scoreManager);
     this._showBallEvent('DOT');
@@ -596,6 +744,10 @@ export class GameEngine {
   _handleWicket(type) {
     this.scoreManager.addWicket(type);
     this.scoreManager.addBall();
+    if (this._isPlayerBowling) {
+      this.scoreManager.addBowlerBall(0);
+      this.scoreManager.addBowlerWicket();
+    }
     this.scoreboard.update(this.scoreManager);
     this._showBallEvent(`WICKET!\n${type.toUpperCase()}`);
     if (type === 'bowled') {
@@ -635,8 +787,35 @@ export class GameEngine {
   _showResult() {
     this.state = GAME_STATE.RESULT;
     this.sound.stopAmbientCrowd();
+    if (this.bowlingMarker) this.bowlingMarker.stop();
     const summary = this.scoreManager.getSummary();
     summary.playerName = this._playerName;
+
+    // Full Match: after 1st innings, show innings break
+    if (this._gameMode === GAME_MODE.FULL_MATCH && this._fullMatchInnings === 1) {
+      this._fullMatchInnings1Summary = summary;
+      this.state = GAME_STATE.INNINGS_BREAK;
+      this.scoreboard.hide();
+      this.shotSelector.hide();
+      this.endGameBtn.style.display = 'none';
+      this.pauseBtn.style.display = 'none';
+      if (this.muteBtn) this.muteBtn.style.display = 'none';
+      if (this.touchController) this.touchController.hide();
+
+      const target = summary.runs + 1;
+      const whoWasBatting = this._isPlayerBowling ? 'AI' : this._playerName;
+      this.ibSummary.textContent = `${whoWasBatting}: ${summary.runs}/${summary.wickets}`;
+      this.ibDetails.textContent = `Overs: ${summary.overs} | RR: ${summary.runRate}`;
+      this.ibTarget.textContent = `Target: ${target} runs`;
+      this.inningsBreak.style.display = 'flex';
+      return;
+    }
+
+    // Full Match: after 2nd innings, show final result
+    if (this._gameMode === GAME_MODE.FULL_MATCH && this._fullMatchInnings === 2) {
+      this._showFullMatchResult(summary);
+      return;
+    }
 
     // Two-player: after 1st innings, show innings break instead of final result
     if (this._isTwoPlayer && this._currentInnings === 1) {
@@ -733,6 +912,55 @@ export class GameEngine {
     if (this.touchController) this.touchController.hide();
     this.resultScreen.style.display = 'flex';
     this._isTwoPlayer = false;
+  }
+
+  _showFullMatchResult(innings2Summary) {
+    const i1 = this._fullMatchInnings1Summary;
+    const i2 = innings2Summary;
+    const playerBattedFirst = this._fullMatchFirstChoice === 'bat';
+
+    let headline;
+    if (playerBattedFirst) {
+      if (i2.runs >= i1.runs + 1) {
+        headline = 'AI wins! You lost.';
+      } else if (i2.runs === i1.runs) {
+        headline = 'Match Tied!';
+      } else {
+        headline = `You win by ${i1.runs - i2.runs} runs!`;
+      }
+    } else {
+      if (i2.runs >= i1.runs + 1) {
+        const wktsLeft = 10 - i2.wickets;
+        headline = `You win by ${wktsLeft} wicket${wktsLeft !== 1 ? 's' : ''}!`;
+      } else if (i2.runs === i1.runs) {
+        headline = 'Match Tied!';
+      } else {
+        headline = `AI wins by ${i1.runs - i2.runs} runs!`;
+      }
+    }
+
+    this.newHsBadge.style.display = 'none';
+    this.resultHighScore.textContent = '';
+    document.querySelector('#result-screen h2').textContent = headline;
+    this.finalScoreEl.textContent = '';
+
+    const inn1Label = playerBattedFirst ? `${this._playerName} (Batting)` : 'AI (Batting)';
+    const inn2Label = playerBattedFirst ? 'AI (Batting)' : `${this._playerName} (Batting)`;
+    this.finalDetailsEl.innerHTML = [
+      `<strong>${inn1Label}:</strong> ${i1.runs}/${i1.wickets} (${i1.overs} ov)`,
+      `RR: ${i1.runRate} | 4s: ${i1.fours} | 6s: ${i1.sixes}`,
+      '',
+      `<strong>${inn2Label}:</strong> ${i2.runs}/${i2.wickets} (${i2.overs} ov)`,
+      `RR: ${i2.runRate} | 4s: ${i2.fours} | 6s: ${i2.sixes}`,
+    ].join('<br>');
+
+    this.scoreboard.hide();
+    this.shotSelector.hide();
+    this.endGameBtn.style.display = 'none';
+    this.pauseBtn.style.display = 'none';
+    if (this.muteBtn) this.muteBtn.style.display = 'none';
+    if (this.touchController) this.touchController.hide();
+    this.resultScreen.style.display = 'flex';
   }
 
   _triggerSlowMo(duration) {
