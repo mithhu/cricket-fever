@@ -101,6 +101,20 @@ export class Bowler {
     collar.position.y = 0.37;
     this.spineJoint.add(collar);
 
+    // Back number stripe (-Z = back)
+    const backStripeMat = new THREE.MeshPhongMaterial({ color: 0x1a3c6e, side: THREE.DoubleSide });
+    const backStripeGeo = new THREE.PlaneGeometry(0.16, 0.2);
+    const backStripe = new THREE.Mesh(backStripeGeo, backStripeMat);
+    backStripe.position.set(0, 0.22, -0.15);
+    this.spineJoint.add(backStripe);
+
+    // Front chest V-shape (+Z = front, faces batsman)
+    const chestVGeo = new THREE.CircleGeometry(0.05, 3);
+    const chestVMat = new THREE.MeshPhongMaterial({ color: 0xf0c040, side: THREE.FrontSide });
+    const chestV = new THREE.Mesh(chestVGeo, chestVMat);
+    chestV.position.set(0, 0.28, 0.15);
+    this.spineJoint.add(chestV);
+
     // ── NECK + HEAD ──
     this.neckJoint = new THREE.Group();
     this.neckJoint.position.set(0, 0.4, 0);

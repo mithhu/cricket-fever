@@ -5,7 +5,7 @@ import {
 } from '../utils/constants.js';
 import { randRange } from '../utils/helpers.js';
 
-const LINE = { OFFSIDE: -0.3, MIDDLE: 0, LEGSIDE: 0.3 };
+const LINE = { OFFSIDE: 0.3, MIDDLE: 0, LEGSIDE: -0.3 };
 
 const DIFFICULTY_SETTINGS = {
   easy: {

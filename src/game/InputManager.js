@@ -36,13 +36,13 @@ export class InputManager {
         e.preventDefault();
         break;
       case 'KeyA':
-        this._shotDirection = SHOTS.PULL;
+        this._shotDirection = SHOTS.CUT;
         this._shotTriggered = true;
         this._lofted = lofted;
         e.preventDefault();
         break;
       case 'KeyD':
-        this._shotDirection = SHOTS.CUT;
+        this._shotDirection = SHOTS.PULL;
         this._shotTriggered = true;
         this._lofted = lofted;
         e.preventDefault();

@@ -267,11 +267,14 @@ export class Batsman {
     this.rightElbowJoint.add(this.rightGlove);
 
     // ── BAT ──
+    // Grip (dark handle) at +Y near the hand, blade (light wood) at -Y toward ground.
+    // Verified via world-space simulation: with the elbow bend and PI/2 group rotation,
+    // +Y in bat-local space maps to higher world Y = correct handle-up orientation.
     this.batGroup = new THREE.Group();
 
-    const gripGeo = new THREE.CylinderGeometry(0.016, 0.018, 0.3, 8);
+    const gripGeo = new THREE.CylinderGeometry(0.016, 0.018, 0.28, 8);
     const grip = new THREE.Mesh(gripGeo, batHandle);
-    grip.position.y = 0.15;
+    grip.position.y = 0.14;
     this.batGroup.add(grip);
 
     const spliceGeo = new THREE.CylinderGeometry(0.018, 0.04, 0.08, 8);
@@ -279,30 +282,58 @@ export class Batsman {
     splice.position.y = -0.02;
     this.batGroup.add(splice);
 
-    const bladeGeo = new THREE.BoxGeometry(0.108, 0.48, 0.038);
+    const bladeGeo = new THREE.BoxGeometry(0.17, 0.50, 0.05);
     const blade = new THREE.Mesh(bladeGeo, batWood);
-    blade.position.y = -0.28;
+    blade.position.y = -0.29;
     this.batGroup.add(blade);
 
-    const spineGeo = new THREE.BoxGeometry(0.04, 0.46, 0.02);
+    const spineGeo = new THREE.BoxGeometry(0.05, 0.48, 0.025);
     const bladeSpine = new THREE.Mesh(spineGeo, batWood);
-    bladeSpine.position.set(0, -0.27, 0.025);
+    bladeSpine.position.set(0, -0.28, -0.033);
     this.batGroup.add(bladeSpine);
 
-    const toeGeo = new THREE.BoxGeometry(0.108, 0.02, 0.038);
+    const toeGeo = new THREE.BoxGeometry(0.17, 0.02, 0.05);
     const toe = new THREE.Mesh(toeGeo, batWood);
-    toe.position.y = -0.52;
+    toe.position.y = -0.55;
     this.batGroup.add(toe);
+
+    // Logo sticker on the front face of the blade (facing bowler/camera)
+    const logoMat = new THREE.MeshPhongMaterial({ color: 0xcc2222, shininess: 20 });
+    const logoGeo = new THREE.PlaneGeometry(0.10, 0.12);
+    const logo = new THREE.Mesh(logoGeo, logoMat);
+    logo.position.set(0, -0.22, 0.026);
+    logo.rotation.y = Math.PI;
+    this.batGroup.add(logo);
+
+    const logoTextMat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 30 });
+    const logoStripe1 = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.08, 0.015), logoTextMat
+    );
+    logoStripe1.position.set(0, -0.19, 0.027);
+    logoStripe1.rotation.y = Math.PI;
+    this.batGroup.add(logoStripe1);
+
+    const logoStripe2 = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.06, 0.015), logoTextMat
+    );
+    logoStripe2.position.set(0, -0.21, 0.027);
+    logoStripe2.rotation.y = Math.PI;
+    this.batGroup.add(logoStripe2);
+
+    const logoStripe3 = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.04, 0.015), logoTextMat
+    );
+    logoStripe3.position.set(0, -0.23, 0.027);
+    logoStripe3.rotation.y = Math.PI;
+    this.batGroup.add(logoStripe3);
 
     this.batGroup.position.set(0, -0.27, 0);
     this.rightElbowJoint.add(this.batGroup);
 
     // ── Right-handed batting stance (side-on guard position) ──
     // +PI/2 rotation: model's +X (right side) faces -Z world (toward bowler).
-    // This means the model's RIGHT shoulder points toward the bowler,
-    // which from the camera (behind bowler) shows the batsman's LEFT
-    // shoulder closer and bat (right hand) on the far side — correct
-    // for a right-hander viewed from the bowler's end.
+    // From the camera (behind bowler looking +Z), we see the batsman's
+    // left side with bat visible on the right — correct for a right-hander.
     this.group.rotation.y = Math.PI / 2;
 
     // Slight forward lean toward the bowler
@@ -319,8 +350,9 @@ export class Batsman {
     this.rightShoulderJoint.rotation.z = -0.2;
     this.rightElbowJoint.rotation.x = -0.95;
 
-    // Bat hangs straight down from hands, blade near the ground
+    // Bat hangs straight down from hands, blade face toward bowler
     this.batGroup.rotation.x = 0.15;
+    this.batGroup.rotation.y = Math.PI / 2;
     this.batGroup.rotation.z = 0;
 
     // Comfortable knee bend — weight balanced
@@ -331,8 +363,8 @@ export class Batsman {
     this.leftHipJoint.rotation.z = 0.05;
     this.rightHipJoint.rotation.z = -0.05;
 
-    // Head turned to watch the bowler over the front (left) shoulder
-    this.neckJoint.rotation.y = -Math.PI / 2 * 0.55;
+    // Head turned to watch the bowler — face/grille points toward bowler and off side
+    this.neckJoint.rotation.y = -Math.PI / 2 * 1.1;
   }
 
   _saveRestPose() {

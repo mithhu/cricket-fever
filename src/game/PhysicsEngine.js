@@ -32,6 +32,38 @@ export class PhysicsEngine {
     return this._timingQuality;
   }
 
+  /**
+   * Checks if the chosen shot can reach the ball given its line.
+   * ballRelativeX: ball.x - batsman.x (+X = off side, -X = leg side)
+   * Returns 'clean', 'edge', or 'air'.
+   */
+  checkShotReach(shotType, ballRelativeX) {
+    const offset = ballRelativeX;
+
+    switch (shotType) {
+      case SHOTS.PULL:
+        // Pull is a leg-side shot (-X) — can't reach off-side balls (+X)
+        if (offset > 0.6) return 'air';
+        if (offset > 0.25) return 'edge';
+        return 'clean';
+
+      case SHOTS.CUT:
+        // Cut is an off-side shot (+X) — can't reach leg-side balls (-X)
+        if (offset < -0.6) return 'air';
+        if (offset < -0.25) return 'edge';
+        return 'clean';
+
+      case SHOTS.DRIVE:
+        if (Math.abs(offset) > 0.8) return 'edge';
+        return 'clean';
+
+      case SHOTS.BLOCK:
+      default:
+        if (Math.abs(offset) > 0.9) return 'edge';
+        return 'clean';
+    }
+  }
+
   calculateShotVelocity(shotType, lofted, timingQuality) {
     const qualityMultiplier = {
       perfect: 1.0,
@@ -44,31 +76,32 @@ export class PhysicsEngine {
       return null;
     }
 
-    // Coordinate system: -Z toward bowler, +Z behind batsman, +X leg side, -X off side
+    // Camera behind bowler looking at batsman's back:
+    // +X = screen right = OFF side, -X = screen left = LEG side
+    // -Z = toward bowler, +Z = behind batsman
     let vx, vy, vz;
 
     switch (shotType) {
       case SHOTS.DRIVE: {
-        // Straight drive: goes back toward the bowler (-Z), slight spread
         const speed = randRange(22, 36) * qualityMultiplier;
         vx = randRange(-2, 2);
-        vz = -speed;  // toward bowler
+        vz = -speed;
         vy = lofted ? randRange(6, 14) : randRange(1, 4);
         break;
       }
       case SHOTS.PULL: {
-        // Pull: goes to leg side (+X), slightly behind square (+Z minor)
+        // Pull: leg side = screen left = -X
         const speed = randRange(24, 40) * qualityMultiplier;
-        vx = speed * randRange(0.6, 0.95);   // strong leg side
-        vz = speed * randRange(-0.4, 0.3);    // between mid-wicket and square leg
+        vx = -speed * randRange(0.6, 0.95);
+        vz = speed * randRange(-0.4, 0.3);
         vy = lofted ? randRange(8, 16) : randRange(2, 5);
         break;
       }
       case SHOTS.CUT: {
-        // Cut: goes to off side (-X), slightly behind square
+        // Cut: off side = screen right = +X
         const speed = randRange(20, 34) * qualityMultiplier;
-        vx = -speed * randRange(0.6, 0.95);  // strong off side
-        vz = speed * randRange(-0.3, 0.3);    // between cover and point
+        vx = speed * randRange(0.6, 0.95);
+        vz = speed * randRange(-0.3, 0.3);
         vy = lofted ? randRange(6, 12) : randRange(1, 4);
         break;
       }

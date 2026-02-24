@@ -125,6 +125,20 @@ export class Fielders {
     collar.position.y = 0.35;
     spineJoint.add(collar);
 
+    // Back number patch (-Z = back of player)
+    const backPatchGeo = new THREE.PlaneGeometry(0.14, 0.16);
+    const backPatchMat = new THREE.MeshPhongMaterial({ color: 0x1a3c6e, side: THREE.DoubleSide });
+    const backPatch = new THREE.Mesh(backPatchGeo, backPatchMat);
+    backPatch.position.set(0, 0.2, -0.13);
+    spineJoint.add(backPatch);
+
+    // Front chest logo (+Z = front of player)
+    const chestLogoGeo = new THREE.CircleGeometry(0.04, 8);
+    const chestLogoMat = new THREE.MeshPhongMaterial({ color: 0xf0c040, side: THREE.FrontSide });
+    const chestLogo = new THREE.Mesh(chestLogoGeo, chestLogoMat);
+    chestLogo.position.set(0.05, 0.28, 0.13);
+    spineJoint.add(chestLogo);
+
     // Neck + head
     const neckJoint = new THREE.Group();
     neckJoint.position.set(0, 0.38, 0);
@@ -169,14 +183,25 @@ export class Fielders {
     nose.rotation.x = Math.PI / 2;
     headGroup.add(nose);
 
-    // Cap — brim on +Z (face) side
-    const capGeo = new THREE.SphereGeometry(0.11, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.45);
-    const cap = new THREE.Mesh(capGeo, capMat);
-    cap.position.y = 0.02;
-    headGroup.add(cap);
+    // Cap — two-toned: bright front panel (+Z), darker back (-Z)
+    const capFrontMat = new THREE.MeshPhongMaterial({ color: 0x2255cc, shininess: 30 });
+    const capBackMat = new THREE.MeshPhongMaterial({ color: 0x0a1a3a, shininess: 20 });
 
+    // Front half of cap (+Z = face side)
+    const capFrontGeo = new THREE.SphereGeometry(0.11, 12, 8, -Math.PI / 2, Math.PI, 0, Math.PI * 0.45);
+    const capFront = new THREE.Mesh(capFrontGeo, capFrontMat);
+    capFront.position.y = 0.02;
+    headGroup.add(capFront);
+
+    // Back half of cap (-Z = back of head)
+    const capBackGeo = new THREE.SphereGeometry(0.11, 12, 8, Math.PI / 2, Math.PI, 0, Math.PI * 0.45);
+    const capBack = new THREE.Mesh(capBackGeo, capBackMat);
+    capBack.position.y = 0.02;
+    headGroup.add(capBack);
+
+    // Brim on front (+Z)
     const brimGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.01, 12, 1, false, -Math.PI / 2, Math.PI);
-    const brim = new THREE.Mesh(brimGeo, capMat);
+    const brim = new THREE.Mesh(brimGeo, capFrontMat);
     brim.position.set(0, 0.02, 0.04);
     brim.rotation.x = 0.1;
     headGroup.add(brim);

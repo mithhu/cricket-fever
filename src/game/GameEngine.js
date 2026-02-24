@@ -315,15 +315,28 @@ export class GameEngine {
       return;
     }
 
-    const velocity = this.physics.calculateShotVelocity(trigger.shot, trigger.lofted, timing);
+    const ballRelativeX = this.ball.position.x - this.batsman.group.position.x;
+    const reach = this.physics.checkShotReach(trigger.shot, ballRelativeX);
+
+    if (reach === 'air') {
+      this.commentary.onMiss();
+      return;
+    }
+
+    let velocity = this.physics.calculateShotVelocity(trigger.shot, trigger.lofted, timing);
     if (velocity) {
+      if (reach === 'edge') {
+        velocity.multiplyScalar(0.25);
+        velocity.x += (Math.random() - 0.5) * 4;
+        velocity.y = Math.min(velocity.y, 2);
+      }
       this.ball.hitByBat(velocity);
       this.sound.playBatCrack();
       this._shotResult = {
         type: 'hit',
         shot: trigger.shot,
         timing,
-        lofted: trigger.lofted,
+        lofted: reach === 'edge' ? false : trigger.lofted,
       };
     }
   }
