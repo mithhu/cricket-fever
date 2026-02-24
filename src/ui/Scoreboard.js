@@ -10,6 +10,10 @@ export class Scoreboard {
     this.targetEl = document.getElementById('sc-target');
     this.bowlerWrap = document.getElementById('sc-bowler-wrap');
     this.bowlerEl = document.getElementById('sc-bowler');
+    this.roleWrap = document.getElementById('sc-role-wrap');
+    this.roleEl = document.getElementById('sc-role');
+    this.opponentWrap = document.getElementById('sc-opponent-wrap');
+    this.opponentEl = document.getElementById('sc-opponent');
     this._playerName = '';
     this._isBowling = false;
   }
@@ -38,10 +42,30 @@ export class Scoreboard {
     }
   }
 
+  setOnlineInfo(role, opponentName) {
+    if (this.roleWrap && this.roleEl) {
+      if (role) {
+        this.roleWrap.style.display = '';
+        this.roleEl.textContent = role === 'batter' ? 'Batting' : 'Bowling';
+      } else {
+        this.roleWrap.style.display = 'none';
+      }
+    }
+    if (this.opponentWrap && this.opponentEl) {
+      if (opponentName) {
+        this.opponentWrap.style.display = '';
+        this.opponentEl.textContent = opponentName;
+      } else {
+        this.opponentWrap.style.display = 'none';
+      }
+    }
+  }
+
   hide() {
     this.el.style.display = 'none';
     this.setTarget(null);
     this.setBowling(false);
+    this.setOnlineInfo(null, null);
   }
 
   update(scoreManager) {

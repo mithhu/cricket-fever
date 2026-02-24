@@ -44,11 +44,13 @@ export const GAME_MODE = {
   BOWL_ONLY: 'BOWL_ONLY',
   FULL_MATCH: 'FULL_MATCH',
   TWO_PLAYER: 'TWO_PLAYER',
+  ONLINE: 'ONLINE',
 };
 
 // Game states
 export const GAME_STATE = {
   MENU: 'MENU',
+  LOBBY: 'LOBBY',           // multiplayer lobby (create/join room)
   WAITING: 'WAITING',       // waiting for bowler run-up
   AIMING: 'AIMING',         // player bowling: aiming marker on pitch
   BOWLING: 'BOWLING',       // ball in air toward batsman

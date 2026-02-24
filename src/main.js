@@ -13,6 +13,8 @@ import { MainMenu } from './ui/MainMenu.js';
 import { ShotSelector } from './ui/ShotSelector.js';
 import { TouchController } from './game/TouchController.js';
 import { BowlingMarker } from './ui/BowlingMarker.js';
+import { NetworkManager } from './network/NetworkManager.js';
+import { OnlineMatch } from './network/OnlineMatch.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -82,6 +84,70 @@ mainMenu.onModeStart((overs, playerName, difficulty, mode) => {
 mainMenu.on2PlayerStart((overs, player1, player2, difficulty) => {
   mainMenu.hide();
   gameEngine.startTwoPlayerMatch(overs, player1, player2, difficulty);
+});
+
+// ─── Online Multiplayer Wiring ───
+
+const networkManager = new NetworkManager();
+gameEngine.networkManager = networkManager;
+const onlineMatch = new OnlineMatch(networkManager, gameEngine);
+
+mainMenu.onOnlineCreate(async (playerName, overs) => {
+  if (!networkManager.connected) {
+    networkManager.connect();
+    await new Promise((resolve) => {
+      const check = () => {
+        if (networkManager.connected) return resolve();
+        setTimeout(check, 200);
+      };
+      check();
+      setTimeout(() => resolve(), 5000);
+    });
+  }
+  if (!networkManager.connected) {
+    mainMenu.showOnlineError('Could not connect to server');
+    return;
+  }
+
+  const result = await networkManager.createRoom(playerName, overs);
+  if (result.error) {
+    mainMenu.showOnlineError(result.error);
+    return;
+  }
+  mainMenu.hide();
+  onlineMatch.showLobby(result.code, true);
+});
+
+mainMenu.onOnlineJoin(async (playerName, code) => {
+  if (!networkManager.connected) {
+    networkManager.connect();
+    await new Promise((resolve) => {
+      const check = () => {
+        if (networkManager.connected) return resolve();
+        setTimeout(check, 200);
+      };
+      check();
+      setTimeout(() => resolve(), 5000);
+    });
+  }
+  if (!networkManager.connected) {
+    mainMenu.showOnlineError('Could not connect to server');
+    return;
+  }
+
+  const result = await networkManager.joinRoom(playerName, code);
+  if (result.error) {
+    mainMenu.showOnlineError(result.error);
+    return;
+  }
+  mainMenu.hide();
+  onlineMatch.showLobby(result.code, false);
+});
+
+document.getElementById('btn-lobby-leave').addEventListener('click', () => {
+  onlineMatch.cleanup();
+  document.getElementById('online-lobby').style.display = 'none';
+  document.getElementById('main-menu').style.display = 'flex';
 });
 
 window.addEventListener('resize', () => {

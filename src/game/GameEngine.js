@@ -40,6 +40,15 @@ export class GameEngine {
     this._fullMatchFirstChoice = null;
     this._fullMatchInnings1Summary = null;
 
+    // Online multiplayer state
+    this._isOnline = false;
+    this._onlineRole = null; // 'batter' | 'bowler'
+    this._onlineOpponentName = null;
+    this._onlineBatterName = null;
+    this._onlineBowlerName = null;
+    this.networkManager = null;
+    this.onlineNoticeEl = document.getElementById('online-notice');
+
     this.state = GAME_STATE.MENU;
     this._waitTimer = 0;
     this._ballTimer = 0;
@@ -114,6 +123,10 @@ export class GameEngine {
     this.playAgainBtn.addEventListener('click', () => {
       this.resultScreen.style.display = 'none';
       document.querySelector('#result-screen h2').textContent = 'INNINGS OVER';
+      if (this._isOnline || this._gameMode === GAME_MODE.ONLINE) {
+        this._showMenu();
+        return;
+      }
       if (this._wasTwoPlayer) {
         this.startTwoPlayerMatch(this._lastOvers, this._player1Name, this._player2Name, this._difficulty);
       } else if (this._gameMode === GAME_MODE.FULL_MATCH || this._gameMode === GAME_MODE.BOWL_ONLY) {
@@ -335,6 +348,8 @@ export class GameEngine {
     this._gameMode = GAME_MODE.BAT_ONLY;
     this._isPlayerBowling = false;
     this._fullMatchInnings = 0;
+    this._isOnline = false;
+    this._onlineRole = null;
     if (this.bowlingMarker) this.bowlingMarker.stop();
     this.sound.stopAmbientCrowd();
     this.resultScreen.style.display = 'none';
@@ -386,14 +401,17 @@ export class GameEngine {
 
       case GAME_STATE.WAITING: {
         this._waitTimer += dt;
-        this.shotSelector.update(this.input.getShotDirection(), dt);
+        if (!this._isOnline) {
+          this.shotSelector.update(this.input.getShotDirection(), dt);
+        }
         const wmov = this.input.getMovement();
         if (wmov.x !== 0 || wmov.z !== 0) {
           this.batsman.moveInCrease(wmov.x, wmov.z, dt);
         }
-        if (this._waitTimer >= 1.0) {
+        if (!this._isOnline && this._waitTimer >= 1.0) {
           this._beginBowling();
         }
+        // In online mode, wait for ball_launched event from server
         break;
       }
 
@@ -433,6 +451,15 @@ export class GameEngine {
 
     if (this.bowlingMarker.isDone()) {
       this._playerBowlData = this.bowlingMarker.consumeResult();
+
+      if (this._isOnline && this.networkManager) {
+        const d = this._playerBowlData;
+        this.networkManager.sendBowlInput(d.line, d.length, d.speed);
+        this._playerBowlData = null;
+        // Wait for server's ball_launched event
+        return;
+      }
+
       this._beginBowling();
     }
   }
@@ -493,7 +520,21 @@ export class GameEngine {
     }
 
     if (!this._shotPlayed) {
-      if (this._isPlayerBowling) {
+      if (this._isOnline) {
+        // In online mode, don't process shots locally — wait for server events
+        if (this._onlineRole === 'batter') {
+          const trigger = this.input.consumeShotTrigger();
+          if (trigger && this.ball.active && this.networkManager) {
+            this.networkManager.sendShotInput(
+              trigger.shot,
+              trigger.lofted,
+              this.batsman.group.position.x,
+              this.batsman.group.position.z
+            );
+          }
+        }
+        // bowler just watches — shot_played event from server triggers animation
+      } else if (this._isPlayerBowling) {
         this._updateAIBatting();
       } else {
         const trigger = this.input.consumeShotTrigger();
@@ -689,6 +730,10 @@ export class GameEngine {
   }
 
   _handleBoundary(runs) {
+    if (this._isOnline) {
+      this._sendOnlineBallResult(runs, false, null, true);
+      return;
+    }
     this.scoreManager.addRuns(runs);
     this.scoreManager.addBall();
     if (this._isPlayerBowling) this.scoreManager.addBowlerBall(runs);
@@ -708,6 +753,10 @@ export class GameEngine {
   }
 
   _handleRuns(runs) {
+    if (this._isOnline) {
+      this._sendOnlineBallResult(runs, false, null, false);
+      return;
+    }
     this.scoreManager.addRuns(runs);
     this.scoreManager.addBall();
     if (this._isPlayerBowling) this.scoreManager.addBowlerBall(runs);
@@ -730,6 +779,10 @@ export class GameEngine {
   }
 
   _handleDotBall() {
+    if (this._isOnline) {
+      this._sendOnlineBallResult(0, false, null, false);
+      return;
+    }
     this.scoreManager.addRuns(0);
     this.scoreManager.addBall();
     if (this._isPlayerBowling) this.scoreManager.addBowlerBall(0);
@@ -742,6 +795,10 @@ export class GameEngine {
   }
 
   _handleWicket(type) {
+    if (this._isOnline) {
+      this._sendOnlineBallResult(0, true, type, false);
+      return;
+    }
     this.scoreManager.addWicket(type);
     this.scoreManager.addBall();
     if (this._isPlayerBowling) {
@@ -763,6 +820,13 @@ export class GameEngine {
     this._finishBall();
   }
 
+  _sendOnlineBallResult(runs, wicket, wicketType, isBoundary) {
+    if (!this.networkManager) return;
+    // Only the batter's client reports ball results to avoid double-counting
+    if (this._onlineRole !== 'batter') return;
+    this.networkManager.sendBallResult({ runs, wicket, wicketType, isBoundary });
+  }
+
   _finishBall() {
     this.state = GAME_STATE.BALL_DONE;
     this._ballDoneTimer = 0;
@@ -774,6 +838,11 @@ export class GameEngine {
     this.batsman.update(dt);
     this.bowler.update(dt);
     if (this.pitch) this.pitch.updateBails(dt);
+
+    if (this._isOnline) {
+      // In online mode, server drives the next ball via new_ball event
+      return;
+    }
 
     if (this._ballDoneTimer >= 2.0) {
       if (this.scoreManager.isInningsOver()) {
@@ -962,6 +1031,266 @@ export class GameEngine {
     if (this.touchController) this.touchController.hide();
     this.resultScreen.style.display = 'flex';
   }
+
+  // ─── Online Multiplayer Methods ───
+
+  startOnlineInnings({ innings: _innings, overs, target, iAmBatter, batterName, bowlerName, opponentName }) {
+    this._isOnline = true;
+    this._gameMode = GAME_MODE.ONLINE;
+    this._onlineRole = iAmBatter ? 'batter' : 'bowler';
+    this._isPlayerBowling = !iAmBatter;
+    this._onlineOpponentName = opponentName;
+    this._onlineBatterName = batterName;
+    this._onlineBowlerName = bowlerName;
+    this._paused = false;
+    this.pauseOverlay.style.display = 'none';
+    this.pauseBtn.textContent = 'Pause';
+    this._lastOvers = overs;
+
+    this.aiBowler.setDifficulty('medium');
+    this.scoreManager = new ScoreManager(overs);
+
+    if (target) {
+      this.scoreManager.setTarget(target);
+      this.scoreboard.setTarget(target);
+    }
+
+    this.scoreboard.setPlayerName(batterName);
+    this.scoreboard.show();
+    this.scoreboard.setBowling(!iAmBatter);
+    this.scoreboard.setOnlineInfo(this._onlineRole, opponentName);
+
+    if (iAmBatter) {
+      this.shotSelector.show();
+      if (this.touchController) this.touchController.show();
+    } else {
+      this.shotSelector.hide();
+      if (this.touchController) this.touchController.showBowling();
+    }
+
+    this.endGameBtn.style.display = 'block';
+    this.pauseBtn.style.display = 'block';
+    if (this.muteBtn) this.muteBtn.style.display = 'block';
+    this.scoreboard.update(this.scoreManager);
+    this.batsman.resetPose();
+    this.bowler.resetPosition();
+    this.ball.reset();
+    this.fielders.returnToPositions();
+    this.gameCamera.resetForNewBall();
+    this.sound.startAmbientCrowd();
+
+    this.state = GAME_STATE.WAITING;
+  }
+
+  onlineNewBall(_data) {
+    this._shotPlayed = false;
+    this._shotResult = null;
+    this._ballSettleTimer = 0;
+    this._chaseSent = false;
+    this._intercepted = false;
+    this._catchingFielder = null;
+    this._catchAttempted = false;
+    this._bouncePlayed = false;
+    this._interceptRuns = undefined;
+    this.ball.reset();
+    if (this.pitch) this.pitch.resetBails();
+    this.batsman.resetPose();
+    this.input.reset();
+    this.gameCamera.resetForNewBall();
+    this.fielders.returnToPositions();
+
+    if (this._onlineRole === 'bowler') {
+      this.state = GAME_STATE.AIMING;
+      this._waitTimer = 0;
+      if (this.bowlingMarker) {
+        this.bowlingMarker.setDifficulty('medium');
+        this.bowlingMarker.start();
+      }
+    } else {
+      this.state = GAME_STATE.WAITING;
+      this._waitTimer = 0;
+    }
+  }
+
+  onlineBallLaunched(data) {
+    const { delivery, seed } = data;
+    this.physics.setSeed(seed);
+
+    this.state = GAME_STATE.BOWLING;
+    this._ballTimer = 0;
+    this._shotPlayed = false;
+
+    if (this.bowlingMarker) this.bowlingMarker.stop();
+
+    this.bowler.startBowling((releasePos) => {
+      const vel = delivery.velocity;
+      this.ball.launch(releasePos, { x: vel.x, y: vel.y, z: vel.z });
+      this.sound.playBowlRelease();
+    });
+  }
+
+  onlineShotPlayed(data) {
+    const { shot, lofted, seed } = data;
+    this.physics.setSeed(seed);
+
+    if (!this.ball.active) return;
+
+    this._shotPlayed = true;
+    const timing = this.physics.calculateTimingQuality(this.ball);
+    this.batsman.playShot(shot);
+
+    if (timing === 'miss') {
+      this._showTimingIndicator('miss', 'clean');
+      return;
+    }
+
+    const ballRelativeX = this.ball.position.x - this.batsman.group.position.x;
+    const reach = this.physics.checkShotReach(shot, ballRelativeX);
+
+    if (reach === 'air') {
+      this._showTimingIndicator(timing, 'air');
+      this.commentary.onMiss();
+      return;
+    }
+
+    this._showTimingIndicator(timing, reach);
+
+    let velocity = this.physics.calculateShotVelocity(shot, lofted, timing);
+    if (velocity) {
+      if (reach === 'edge') {
+        velocity.multiplyScalar(0.25);
+        velocity.x += (this.physics._rand() - 0.5) * 4;
+        velocity.y = Math.min(velocity.y, 2);
+        this.sound.playEdge();
+      }
+      this.ball.hitByBat(velocity);
+      if (reach !== 'edge') this.sound.playBatCrack();
+      this._showPowerMeter(velocity);
+      this._shotResult = {
+        type: 'hit',
+        shot,
+        timing,
+        lofted: reach === 'edge' ? false : lofted,
+      };
+    }
+
+    this.physics.setSeed(null);
+  }
+
+  onlineBallResult(data) {
+    const { runs, wicket, wicketType, isBoundary, inningsOver } = data;
+
+    if (wicket) {
+      this.scoreManager.addWicket(wicketType);
+    }
+    if (isBoundary) {
+      this.scoreManager.addRuns(runs);
+    } else if (!wicket) {
+      this.scoreManager.addRuns(runs);
+    }
+    this.scoreManager.addBall();
+
+    if (this._onlineRole === 'bowler') {
+      this.scoreManager.addBowlerBall(wicket ? 0 : runs);
+      if (wicket) this.scoreManager.addBowlerWicket();
+    }
+
+    this.scoreboard.update(this.scoreManager);
+
+    if (wicket) {
+      this._showBallEvent(`WICKET!\n${wicketType.toUpperCase()}`);
+      if (wicketType === 'bowled') {
+        this.sound.playWicketFall();
+        this.commentary.onBowled();
+        if (this.pitch) this.pitch.triggerBailsFly();
+      } else {
+        this.sound.playCatchCheer();
+        this.commentary.onCaught();
+      }
+      this._triggerSlowMo(1.5);
+    } else if (isBoundary) {
+      this._showBallEvent(runs === 6 ? 'SIX!' : 'FOUR!');
+      this._showRunCounter(runs);
+      this._showBoundaryFlash(runs === 6);
+      this.sound.playBoundaryCheer(runs === 6);
+      if (runs === 6) this.commentary.onSix(); else this.commentary.onFour();
+      this._triggerSlowMo(runs === 6 ? 1.5 : 1.0);
+    } else if (runs === 0) {
+      this._showBallEvent('DOT');
+      this.sound.playDotBall();
+      this.commentary.onDot();
+    } else {
+      this._showBallEvent(`${runs} run${runs > 1 ? 's' : ''}`);
+      this._showRunCounter(runs);
+      this.commentary.onRuns(runs);
+    }
+
+    this._finishBall();
+
+    if (inningsOver) {
+      // Server will send innings_break or match_result
+    }
+  }
+
+  onlineInningsBreak(data) {
+    this.state = GAME_STATE.INNINGS_BREAK;
+    this.scoreboard.hide();
+    this.shotSelector.hide();
+    this.endGameBtn.style.display = 'none';
+    this.pauseBtn.style.display = 'none';
+    if (this.muteBtn) this.muteBtn.style.display = 'none';
+    if (this.touchController) this.touchController.hide();
+    if (this.bowlingMarker) this.bowlingMarker.stop();
+
+    this.ibSummary.textContent = `${data.summary.innings === 1 ? this._onlineBatterName : this._onlineBowlerName}: ${data.summary.runs}/${data.summary.wickets}`;
+    this.ibDetails.textContent = `Overs: ${data.summary.overs} | RR: ${data.summary.runRate}`;
+    this.ibTarget.textContent = `Target: ${data.target} runs`;
+
+    this.ibContinueBtn.style.display = 'none';
+    this.inningsBreak.style.display = 'flex';
+  }
+
+  onlineMatchResult(data) {
+    this.state = GAME_STATE.RESULT;
+    this._isOnline = false;
+    this.sound.stopAmbientCrowd();
+    if (this.bowlingMarker) this.bowlingMarker.stop();
+
+    this.newHsBadge.style.display = 'none';
+    this.resultHighScore.textContent = '';
+    document.querySelector('#result-screen h2').textContent = data.headline;
+    this.finalScoreEl.textContent = '';
+
+    const i1 = data.innings1;
+    const i2 = data.innings2;
+    this.finalDetailsEl.innerHTML = [
+      `<strong>${i1.batterName} (Batting):</strong> ${i1.runs}/${i1.wickets} (${i1.overs} ov)`,
+      `RR: ${i1.runRate} | 4s: ${i1.fours} | 6s: ${i1.sixes}`,
+      '',
+      `<strong>${i2.batterName} (Batting):</strong> ${i2.runs}/${i2.wickets} (${i2.overs} ov)`,
+      `RR: ${i2.runRate} | 4s: ${i2.fours} | 6s: ${i2.sixes}`,
+    ].join('<br>');
+
+    this.scoreboard.hide();
+    this.shotSelector.hide();
+    this.endGameBtn.style.display = 'none';
+    this.pauseBtn.style.display = 'none';
+    if (this.muteBtn) this.muteBtn.style.display = 'none';
+    if (this.touchController) this.touchController.hide();
+    this.resultScreen.style.display = 'flex';
+  }
+
+  showOnlineNotice(text) {
+    if (this.onlineNoticeEl) {
+      this.onlineNoticeEl.textContent = text;
+      this.onlineNoticeEl.style.display = 'block';
+      setTimeout(() => {
+        this.onlineNoticeEl.style.display = 'none';
+      }, 4000);
+    }
+  }
+
+  // ─── End Online Methods ───
 
   _triggerSlowMo(duration) {
     this._slowMo = true;

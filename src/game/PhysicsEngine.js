@@ -3,11 +3,24 @@ import {
   BATSMAN_Z, STUMP_HEIGHT, STUMP_GAP, PITCH_HALF,
   SHOTS, BOUNDARY_RADIUS,
 } from '../utils/constants.js';
-import { randRange, clamp } from '../utils/helpers.js';
+import { clamp, createSeededRandom } from '../utils/helpers.js';
 
 export class PhysicsEngine {
   constructor() {
     this._timingQuality = 'miss';
+    this._rng = null;
+  }
+
+  setSeed(seed) {
+    this._rng = seed != null ? createSeededRandom(seed) : null;
+  }
+
+  _rand() {
+    return this._rng ? this._rng() : Math.random();
+  }
+
+  _randRange(min, max) {
+    return this._rand() * (max - min) + min;
   }
 
   checkBallAtBatsman(ball) {
@@ -100,50 +113,46 @@ export class PhysicsEngine {
 
     switch (shotType) {
       case SHOTS.DRIVE: {
-        const speed = randRange(22, 36) * qualityMultiplier;
-        vx = randRange(-2, 2);
+        const speed = this._randRange(22, 36) * qualityMultiplier;
+        vx = this._randRange(-2, 2);
         vz = -speed;
-        vy = lofted ? randRange(6, 14) : randRange(1, 4);
+        vy = lofted ? this._randRange(6, 14) : this._randRange(1, 4);
         break;
       }
       case SHOTS.PULL: {
-        // Pull: leg side = screen left = -X
-        const speed = randRange(24, 40) * qualityMultiplier;
-        vx = -speed * randRange(0.6, 0.95);
-        vz = speed * randRange(-0.4, 0.3);
-        vy = lofted ? randRange(8, 16) : randRange(2, 5);
+        const speed = this._randRange(24, 40) * qualityMultiplier;
+        vx = -speed * this._randRange(0.6, 0.95);
+        vz = speed * this._randRange(-0.4, 0.3);
+        vy = lofted ? this._randRange(8, 16) : this._randRange(2, 5);
         break;
       }
       case SHOTS.CUT: {
-        // Cut: off side = screen right = +X
-        const speed = randRange(20, 34) * qualityMultiplier;
-        vx = speed * randRange(0.6, 0.95);
-        vz = speed * randRange(-0.3, 0.3);
-        vy = lofted ? randRange(6, 12) : randRange(1, 4);
+        const speed = this._randRange(20, 34) * qualityMultiplier;
+        vx = speed * this._randRange(0.6, 0.95);
+        vz = speed * this._randRange(-0.3, 0.3);
+        vy = lofted ? this._randRange(6, 12) : this._randRange(1, 4);
         break;
       }
       case SHOTS.SWEEP: {
-        // Sweep: low cross-bat to leg side, fast along the ground
-        const speed = randRange(18, 32) * qualityMultiplier;
-        vx = -speed * randRange(0.7, 1.0);
-        vz = speed * randRange(-0.3, 0.2);
-        vy = lofted ? randRange(6, 12) : randRange(1, 3);
+        const speed = this._randRange(18, 32) * qualityMultiplier;
+        vx = -speed * this._randRange(0.7, 1.0);
+        vz = speed * this._randRange(-0.3, 0.2);
+        vy = lofted ? this._randRange(6, 12) : this._randRange(1, 3);
         break;
       }
       case SHOTS.LOFTED_DRIVE: {
-        // Lofted drive: always aerial, straight over bowler's head
-        const speed = randRange(24, 40) * qualityMultiplier;
-        vx = randRange(-3, 3);
+        const speed = this._randRange(24, 40) * qualityMultiplier;
+        vx = this._randRange(-3, 3);
         vz = -speed;
-        vy = randRange(10, 18);
+        vy = this._randRange(10, 18);
         break;
       }
       case SHOTS.BLOCK:
       default: {
-        const speed = randRange(3, 8) * qualityMultiplier;
-        vx = randRange(-1, 1);
+        const speed = this._randRange(3, 8) * qualityMultiplier;
+        vx = this._randRange(-1, 1);
         vz = -speed;
-        vy = randRange(0.5, 2);
+        vy = this._randRange(0.5, 2);
         break;
       }
     }
@@ -176,7 +185,7 @@ export class PhysicsEngine {
       catchChance = lofted ? 0.08 : 0.02;
     }
 
-    return Math.random() < catchChance;
+    return this._rand() < catchChance;
   }
 
   estimateRuns(ball, fielders) {

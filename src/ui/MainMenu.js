@@ -17,6 +17,8 @@ export class MainMenu {
     this._onStart = null;
     this._on2PlayerStart = null;
     this._onModeStart = null;
+    this._onOnlineCreate = null;
+    this._onOnlineJoin = null;
     this._selectedName = null;
     this._selectedDifficulty = 'medium';
     this._selectedMode = 'bat_only';
@@ -95,6 +97,19 @@ export class MainMenu {
     document.getElementById('btn-back-solo').addEventListener('click', () => this._showSoloMode());
     document.getElementById('btn-tp-start-5').addEventListener('click', () => this._validateAndStart2P(5));
     document.getElementById('btn-tp-start-10').addEventListener('click', () => this._validateAndStart2P(10));
+
+    // Online match UI
+    this._onlineSetup = document.getElementById('online-setup');
+    this._onlineError = document.getElementById('online-error');
+    this._joinCodeInput = document.getElementById('join-code-input');
+
+    document.getElementById('btn-online-match').addEventListener('click', () => this._showOnlineMode());
+    document.getElementById('btn-back-from-online').addEventListener('click', () => this._showSoloMode());
+    document.getElementById('btn-create-room').addEventListener('click', () => this._onCreateRoom());
+    document.getElementById('btn-join-room').addEventListener('click', () => this._onJoinRoom());
+    this._joinCodeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this._onJoinRoom();
+    });
   }
 
   _loadPlayers() {
@@ -285,10 +300,53 @@ export class MainMenu {
 
   _showSoloMode() {
     this._tpSelectEl.style.display = 'none';
+    if (this._onlineSetup) this._onlineSetup.style.display = 'none';
     this._soloElements.forEach((el) => {
       if (el) el.style.display = 'flex';
     });
     document.getElementById('btn-two-player').style.display = '';
+    document.getElementById('btn-online-match').style.display = '';
+  }
+
+  _showOnlineMode() {
+    this._soloElements.forEach((el) => { if (el) el.style.display = 'none'; });
+    document.getElementById('btn-two-player').style.display = 'none';
+    document.getElementById('btn-online-match').style.display = 'none';
+    this._tpSelectEl.style.display = 'none';
+    if (this._onlineSetup) this._onlineSetup.style.display = 'flex';
+    if (this._onlineError) this._onlineError.textContent = '';
+  }
+
+  _onCreateRoom() {
+    if (!this._selectedName) {
+      if (this._onlineError) this._onlineError.textContent = 'Select or create a player first';
+      return;
+    }
+    if (this._onOnlineCreate) {
+      this._onOnlineCreate(this._selectedName, 5);
+    }
+  }
+
+  _onJoinRoom() {
+    if (!this._selectedName) {
+      if (this._onlineError) this._onlineError.textContent = 'Select or create a player first';
+      return;
+    }
+    const code = this._joinCodeInput.value.trim().toUpperCase();
+    if (!code || code.length < 4) {
+      if (this._onlineError) this._onlineError.textContent = 'Enter a valid room code';
+      return;
+    }
+    if (this._onOnlineJoin) {
+      this._onOnlineJoin(this._selectedName, code);
+    }
+  }
+
+  onOnlineCreate(callback) { this._onOnlineCreate = callback; }
+  onOnlineJoin(callback) { this._onOnlineJoin = callback; }
+
+  showOnlineError(msg) {
+    if (this._onlineError) this._onlineError.textContent = msg;
   }
 
   _renderTwoPlayerUI() {

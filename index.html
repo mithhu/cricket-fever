@@ -576,6 +576,107 @@
     /* Bowler figures in scoreboard */
     .score-value.bowler { color: #8bc4f0; font-size: 20px; }
 
+    /* Online Lobby */
+    #online-lobby {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #0a1628 0%, #1a3a2a 50%, #0a1628 100%);
+      z-index: 60;
+    }
+    #online-lobby h2 {
+      font-size: 36px; color: #f0c040; margin-bottom: 10px;
+      text-transform: uppercase; letter-spacing: 4px;
+    }
+    .lobby-code-box {
+      display: flex; flex-direction: column; align-items: center;
+      margin: 16px 0;
+    }
+    .lobby-code-label {
+      font-size: 12px; color: #8ab4a0; text-transform: uppercase;
+      letter-spacing: 3px; margin-bottom: 8px;
+    }
+    #lobby-code-display {
+      font-size: 42px; font-weight: 900; color: #f0c040; letter-spacing: 8px;
+      background: rgba(255,255,255,0.06); padding: 12px 32px; border-radius: 16px;
+      border: 2px solid rgba(240,192,64,0.4); user-select: all; cursor: pointer;
+    }
+    .lobby-opponent-row {
+      display: flex; align-items: center; gap: 10px; margin: 14px 0;
+      font-size: 16px; color: #cde0d5;
+    }
+    .lobby-opponent-label {
+      color: #8ab4a0; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;
+    }
+    #lobby-opponent { font-weight: 700; }
+    #lobby-status {
+      font-size: 14px; color: #8ab4a0; margin: 12px 0;
+    }
+    #lobby-error {
+      font-size: 13px; color: rgba(255,100,100,0.9); margin: 8px 0; min-height: 18px;
+    }
+    #btn-lobby-ready {
+      padding: 14px 50px; font-size: 18px; font-weight: 700;
+      background: linear-gradient(135deg, #2a5a3a, #3a7a4a); color: #fff;
+      border: none; border-radius: 50px; cursor: pointer;
+      transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px;
+      margin-top: 12px;
+    }
+    #btn-lobby-ready:hover { box-shadow: 0 0 25px rgba(58,122,74,0.5); }
+    #btn-lobby-ready:disabled { opacity: 0.5; cursor: not-allowed; }
+    #btn-lobby-leave {
+      margin-top: 16px; padding: 8px 28px; font-size: 13px; font-weight: 600;
+      background: transparent; color: #6a8a7a;
+      border: 1px solid rgba(138,180,160,0.3); border-radius: 20px;
+      cursor: pointer; transition: all 0.3s; text-transform: uppercase; letter-spacing: 1px;
+    }
+    #btn-lobby-leave:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+
+    /* Online match creation modal */
+    #online-setup {
+      display: none; flex-direction: column; align-items: center;
+      margin-bottom: 24px; width: 400px; max-width: 90vw;
+    }
+    #online-setup .section-label {
+      font-size: 12px; color: #8ab4a0; text-transform: uppercase;
+      letter-spacing: 3px; margin-bottom: 12px;
+    }
+    .online-actions {
+      display: flex; gap: 12px; margin-bottom: 16px;
+    }
+    #join-code-input {
+      width: 160px; padding: 10px 16px; font-size: 18px; font-weight: 700;
+      background: rgba(255,255,255,0.08); color: #fff;
+      border: 2px solid rgba(240,192,64,0.3); border-radius: 12px;
+      text-align: center; outline: none; text-transform: uppercase;
+      letter-spacing: 4px; font-family: inherit;
+    }
+    #join-code-input::placeholder {
+      color: rgba(138,180,160,0.5); font-weight: 400; font-size: 13px;
+      letter-spacing: 1px; text-transform: none;
+    }
+    #join-code-input:focus { border-color: rgba(240,192,64,0.7); }
+    #online-error { font-size: 12px; color: rgba(255,100,100,0.8); min-height: 16px; margin-top: 4px; }
+
+    /* Connection status dot */
+    .conn-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      margin-right: 6px; vertical-align: middle;
+    }
+    .conn-dot.online { background: #44cc66; box-shadow: 0 0 6px rgba(68,204,102,0.5); }
+    .conn-dot.offline { background: #cc4444; box-shadow: 0 0 6px rgba(204,68,68,0.5); }
+
+    /* Online notice overlay */
+    #online-notice {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      display: none; padding: 16px 32px; font-size: 18px; font-weight: 700;
+      color: #fff; background: rgba(10, 15, 30, 0.9);
+      border: 2px solid rgba(240,192,64,0.4); border-radius: 16px;
+      backdrop-filter: blur(8px); z-index: 70; text-align: center;
+    }
+
+    /* Role label in scoreboard */
+    .score-value.role { color: #88ddff; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+
     /* Full match toss choice buttons */
     #toss-choice {
       display: flex; gap: 12px; margin-top: 16px;
@@ -786,6 +887,19 @@
         <button id="btn-start-10">Start (10 Overs)</button>
       </div>
       <button id="btn-two-player">2 Player Match</button>
+      <button id="btn-online-match" style="background:linear-gradient(135deg,#4090f0,#2060c0);color:#fff;">Online Match</button>
+
+      <!-- Online Match Setup (hidden by default) -->
+      <div id="online-setup">
+        <div class="section-label">Online 1v1</div>
+        <div class="online-actions">
+          <button id="btn-create-room">Create Room</button>
+          <input type="text" id="join-code-input" placeholder="Code..." maxlength="6" autocomplete="off" />
+          <button id="btn-join-room">Join</button>
+        </div>
+        <div id="online-error">&nbsp;</div>
+        <button id="btn-back-from-online" style="padding:7px 20px;font-size:12px;font-weight:600;background:transparent;color:#6a8a7a;border:1px solid rgba(138,180,160,0.3);border-radius:20px;text-transform:uppercase;letter-spacing:1px;">Back</button>
+      </div>
 
       <!-- Two-Player Selection (hidden by default, shown when btn-two-player clicked) -->
       <div id="two-player-select">
@@ -838,6 +952,8 @@
         <div class="score-item"><div class="score-label">Last Ball</div><div class="score-value" id="sc-last">—</div></div>
         <div class="score-item" id="sc-bowler-wrap" style="display:none;"><div class="score-label">Bowler</div><div class="score-value bowler" id="sc-bowler">0/0</div></div>
         <div class="score-item" id="sc-target-wrap" style="display:none;"><div class="score-label">Target</div><div class="score-value target" id="sc-target">—</div></div>
+        <div class="score-item" id="sc-role-wrap" style="display:none;"><div class="score-label">Role</div><div class="score-value role" id="sc-role">—</div></div>
+        <div class="score-item" id="sc-opponent-wrap" style="display:none;"><div class="score-label">Opponent</div><div class="score-value" id="sc-opponent" style="font-size:16px;">—</div></div>
       </div>
     </div>
 
@@ -927,6 +1043,26 @@
 
     <!-- Ball Event Popup -->
     <div id="ball-event"></div>
+
+    <!-- Online Lobby -->
+    <div id="online-lobby">
+      <h2>Online Match</h2>
+      <div class="lobby-code-box">
+        <div class="lobby-code-label">Room Code</div>
+        <div id="lobby-code-display">------</div>
+      </div>
+      <div class="lobby-opponent-row">
+        <span class="lobby-opponent-label">Opponent:</span>
+        <span id="lobby-opponent">—</span>
+      </div>
+      <div id="lobby-status">Connecting...</div>
+      <div id="lobby-error"></div>
+      <button id="btn-lobby-ready" style="display:none;">Ready</button>
+      <button id="btn-lobby-leave">Leave</button>
+    </div>
+
+    <!-- Online Notice -->
+    <div id="online-notice"></div>
 
     <!-- Result Screen -->
     <div id="result-screen">

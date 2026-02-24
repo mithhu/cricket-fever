@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "node --watch server/index.js",
+    "dev:all": "npm run dev:server & npm run dev",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src/",
     "prepare": "husky"
   },
   "dependencies": {
+    "socket.io-client": "^4.8.3",
     "three": "^0.170.0"
   },
   "devDependencies": {
