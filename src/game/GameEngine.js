@@ -402,7 +402,7 @@ export class GameEngine {
 
       case GAME_STATE.WAITING: {
         this._waitTimer += dt;
-        if (!this._isOnline) {
+        if (!this._isPlayerBowling) {
           this.shotSelector.update(this.input.getShotDirection(), dt);
         }
         const wmov = this.input.getMovement();
@@ -412,7 +412,6 @@ export class GameEngine {
         if (!this._isOnline && this._waitTimer >= 1.0) {
           this._beginBowling();
         }
-        // In online mode, wait for ball_launched event from server
         break;
       }
 
