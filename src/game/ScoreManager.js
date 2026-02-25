@@ -9,6 +9,7 @@ export class ScoreManager {
     this.wickets = 0;
     this.ballsFaced = 0;
     this.extras = 0;
+    this.wides = 0;
     this.fours = 0;
     this.sixes = 0;
     this.batsmanRuns = 0;
@@ -40,6 +41,14 @@ export class ScoreManager {
     this.lastBallResult = `W (${dismissalType})`;
     this.batsmanRuns = 0;
     this.batsmanBalls = 0;
+  }
+
+  addWide() {
+    this.runs += 1;
+    this.extras += 1;
+    this.wides += 1;
+    this.lastBallResult = 'WIDE';
+    this.ballLog.push('wd');
   }
 
   addBall() {
@@ -125,6 +134,8 @@ export class ScoreManager {
       runRate: this.getRunRate(),
       fours: this.fours,
       sixes: this.sixes,
+      wides: this.wides,
+      extras: this.extras,
       balls: this.ballsFaced,
       strikeRate: ((this.runs / Math.max(this.ballsFaced, 1)) * 100).toFixed(1),
       bowlerFigures: this.getBowlerFigures(),

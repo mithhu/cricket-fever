@@ -559,10 +559,13 @@ export class GameEngine {
 
     if (this.ball.active && !this.ball.hasBeenHit) {
       if (this._isOnline) {
-        // In online mode, only the batter's client detects bowled/dot and reports to server
         if (this._onlineRole === 'batter') {
           if (this.physics.checkBowled(this.ball)) {
             this._handleWicket('bowled');
+            return;
+          }
+          if (this.physics.checkWide(this.ball, this.batsman.group.position.x)) {
+            this._handleWide();
             return;
           }
           if (this.ball.position.z > this.batsman.group.position.z + 8) {
@@ -573,6 +576,10 @@ export class GameEngine {
       } else {
         if (this.physics.checkBowled(this.ball)) {
           this._handleWicket('bowled');
+          return;
+        }
+        if (this.physics.checkWide(this.ball, this.batsman.group.position.x)) {
+          this._handleWide();
           return;
         }
         if (this.ball.position.z > this.batsman.group.position.z + 8) {
@@ -827,6 +834,20 @@ export class GameEngine {
     this._finishBall();
   }
 
+  _handleWide() {
+    if (this._isOnline) {
+      this._sendOnlineBallResult(0, false, null, false, true);
+      this._finishBall();
+      return;
+    }
+    this.scoreManager.addWide();
+    if (this._isPlayerBowling) this.scoreManager.addBowlerBall(1);
+    this.scoreboard.update(this.scoreManager);
+    this._showBallEvent('WIDE');
+    this.sound.playDotBall();
+    this._finishBall();
+  }
+
   _handleWicket(type) {
     if (this._isOnline) {
       this._sendOnlineBallResult(0, true, type, false);
@@ -854,12 +875,12 @@ export class GameEngine {
     this._finishBall();
   }
 
-  _sendOnlineBallResult(runs, wicket, wicketType, isBoundary) {
+  _sendOnlineBallResult(runs, wicket, wicketType, isBoundary, isWide) {
     if (!this.networkManager) return;
     if (this._onlineRole !== 'batter') return;
     if (this._onlineBallResultSent) return;
     this._onlineBallResultSent = true;
-    this.networkManager.sendBallResult({ runs, wicket, wicketType, isBoundary });
+    this.networkManager.sendBallResult({ runs, wicket, wicketType, isBoundary, isWide: !!isWide });
   }
 
   _finishBall() {
@@ -954,8 +975,9 @@ export class GameEngine {
       `Overs: ${summary.overs}`,
       `Run Rate: ${summary.runRate}`,
       `Fours: ${summary.fours} | Sixes: ${summary.sixes}`,
+      summary.wides ? `Wides: ${summary.wides} | Extras: ${summary.extras}` : '',
       `Strike Rate: ${summary.strikeRate}`,
-    ].join('<br>');
+    ].filter(Boolean).join('<br>');
 
     if (isNew && rank === 1) {
       this.newHsBadge.style.display = 'block';
@@ -1211,15 +1233,16 @@ export class GameEngine {
   }
 
   onlineBallResult(data) {
-    const { runs, wicket, wicketType, isBoundary, score, inningsOver } = data;
+    const { runs, wicket, wicketType, isBoundary, isWide, score, inningsOver } = data;
 
-    // Use server-authoritative score to sync both clients
     if (score) {
       this.scoreManager.runs = score.runs;
       this.scoreManager.wickets = score.wickets;
       this.scoreManager.ballsFaced = parseInt(score.overs.split('.')[0]) * 6 + parseInt(score.overs.split('.')[1]);
       this.scoreManager.fours = score.fours;
       this.scoreManager.sixes = score.sixes;
+      this.scoreManager.wides = score.wides || 0;
+      this.scoreManager.extras = score.extras || 0;
       this.scoreManager.batsmanRuns = score.batsmanRuns;
       this.scoreManager.batsmanBalls = score.batsmanBalls;
       if (score.target) this.scoreManager.setTarget(score.target);
@@ -1228,8 +1251,10 @@ export class GameEngine {
 
     this.scoreboard.update(this.scoreManager);
 
-    // Visual/audio feedback
-    if (wicket) {
+    if (isWide) {
+      this._showBallEvent('WIDE');
+      this.sound.playDotBall();
+    } else if (wicket) {
       this._showBallEvent(`WICKET!\n${wicketType.toUpperCase()}`);
       if (wicketType === 'bowled') {
         this.sound.playWicketFall();

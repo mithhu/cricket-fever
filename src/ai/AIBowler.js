@@ -43,12 +43,19 @@ export class AIBowler {
     const speed = randRange(settings.speedMin, settings.speedMax);
 
     const lines = [LINE.OFFSIDE, LINE.MIDDLE, LINE.LEGSIDE];
-    const line = this._weightedPick(lines, settings.lineWeights);
+    let line = this._weightedPick(lines, settings.lineWeights);
 
     const lengths = [0.3, 0.5, 0.7, 0.85];
     const lengthFactor = this._weightedPick(lengths, settings.lengthWeights);
 
-    const swing = randRange(-settings.swingRange, settings.swingRange);
+    let swing = randRange(-settings.swingRange, settings.swingRange);
+
+    const wideChance = this.difficulty === 'easy' ? 0.08 : this.difficulty === 'hard' ? 0.02 : 0.04;
+    if (Math.random() < wideChance) {
+      const side = Math.random() < 0.5 ? 1 : -1;
+      line = side * randRange(1.0, 1.6);
+      swing = side * randRange(0.2, 0.6);
+    }
 
     return this._calculateTrajectory(releasePos, speed, line, lengthFactor, swing);
   }

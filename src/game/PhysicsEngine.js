@@ -162,13 +162,19 @@ export class PhysicsEngine {
 
   checkBowled(ball) {
     if (ball.hasBeenHit) return false;
-    // Ball has passed batsman and is near stumps
     if (ball.position.z >= PITCH_HALF - 0.1 &&
         ball.position.y <= STUMP_HEIGHT + 0.05 &&
         Math.abs(ball.position.x) <= STUMP_GAP * 1.5) {
       return true;
     }
     return false;
+  }
+
+  checkWide(ball, batsmanX) {
+    if (ball.hasBeenHit) return false;
+    if (ball.position.z < BATSMAN_Z - 0.5 || ball.position.z > BATSMAN_Z + 2) return false;
+    const relativeX = Math.abs(ball.position.x - batsmanX);
+    return relativeX > 1.3;
   }
 
   checkCaught(shotType, timingQuality, lofted) {

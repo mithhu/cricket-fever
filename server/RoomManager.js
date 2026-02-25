@@ -238,9 +238,11 @@ export class RoomManager {
 
   handleBallResult(room, resultData) {
     const session = room.session;
-    const { runs, wicket, wicketType, isBoundary } = resultData;
+    const { runs, wicket, wicketType, isBoundary, isWide } = resultData;
 
-    if (wicket) {
+    if (isWide) {
+      session.addWide();
+    } else if (wicket) {
       session.addWicket(wicketType);
       session.addBallOnly();
     } else {
@@ -255,6 +257,7 @@ export class RoomManager {
       wicket,
       wicketType,
       isBoundary,
+      isWide,
       score,
       inningsOver,
     });
@@ -262,7 +265,8 @@ export class RoomManager {
     if (inningsOver) {
       this._handleInningsEnd(room);
     } else {
-      setTimeout(() => this._requestNewBall(room), 2500);
+      const delay = isWide ? 1500 : 2500;
+      setTimeout(() => this._requestNewBall(room), delay);
     }
   }
 

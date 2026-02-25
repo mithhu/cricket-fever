@@ -23,6 +23,8 @@ export class GameSession {
       ballsFaced: 0,
       fours: 0,
       sixes: 0,
+      wides: 0,
+      extras: 0,
       batsmanRuns: 0,
       batsmanBalls: 0,
       target: null,
@@ -122,6 +124,14 @@ export class GameSession {
     state.ballsFaced++;
   }
 
+  addWide() {
+    const state = this._currentInningsState();
+    state.runs += 1;
+    state.extras += 1;
+    state.wides += 1;
+    state.lastBallResult = 'WIDE';
+  }
+
   isInningsOver() {
     const state = this._currentInningsState();
     if (state.target !== null && state.runs >= state.target) return true;
@@ -138,6 +148,8 @@ export class GameSession {
       overs: `${completedOvers}.${ballsInOver}`,
       fours: state.fours,
       sixes: state.sixes,
+      wides: state.wides,
+      extras: state.extras,
       batsmanRuns: state.batsmanRuns,
       batsmanBalls: state.batsmanBalls,
       target: state.target,
