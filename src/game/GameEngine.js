@@ -1144,6 +1144,8 @@ export class GameEngine {
     this._catchAttempted = false;
     this._bouncePlayed = false;
     this._interceptRuns = undefined;
+    this.ballEventEl.style.display = 'none';
+    this._eventPopupTimer = 0;
     this.ball.reset();
     if (this.pitch) this.pitch.resetBails();
     this.batsman.resetPose();

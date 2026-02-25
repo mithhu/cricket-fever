@@ -446,6 +446,10 @@ export class Fielders {
     for (const f of this.fielders) {
       f.state = 'returning';
     }
+    if (this._throwState) {
+      this._throwState = null;
+      this._throwBall.visible = false;
+    }
   }
 
   startReturnThrow(fielder) {
