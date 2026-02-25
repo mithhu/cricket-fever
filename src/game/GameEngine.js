@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { GAME_STATE, GAME_MODE } from '../utils/constants.js';
 import { PhysicsEngine } from './PhysicsEngine.js';
 import { ScoreManager } from './ScoreManager.js';
@@ -524,15 +525,21 @@ export class GameEngine {
         if (this._onlineRole === 'batter') {
           const trigger = this.input.consumeShotTrigger();
           if (trigger && this.ball.active) {
+            this._attemptShot(trigger);
+            const hitVel = this.ball.hasBeenHit ? {
+              x: this.ball.velocity.x,
+              y: this.ball.velocity.y,
+              z: this.ball.velocity.z,
+            } : null;
             if (this.networkManager) {
               this.networkManager.sendShotInput(
                 trigger.shot,
                 trigger.lofted,
                 this.batsman.group.position.x,
-                this.batsman.group.position.z
+                this.batsman.group.position.z,
+                hitVel
               );
             }
-            this._attemptShot(trigger);
           }
         }
       } else if (this._isPlayerBowling) {
@@ -1175,58 +1182,30 @@ export class GameEngine {
   }
 
   onlineShotPlayed(data) {
-    const { shot, lofted, seed } = data;
+    const { shot, lofted, hitVelocity } = data;
 
-    // The batter's client already executed this shot locally via input.
-    // Only the bowler's client needs to replay it from the server event.
     if (this._onlineRole === 'batter') return;
-
-    this.physics.setSeed(seed);
 
     if (!this.ball.active) return;
 
     this._shotPlayed = true;
-    const timing = this.physics.calculateTimingQuality(this.ball);
     this.batsman.playShot(shot);
 
-    if (timing === 'miss') {
+    if (!hitVelocity) {
       this._showTimingIndicator('miss', 'clean');
-      this.physics.setSeed(null);
       return;
     }
 
-    const ballRelativeX = this.ball.position.x - this.batsman.group.position.x;
-    const reach = this.physics.checkShotReach(shot, ballRelativeX);
-
-    if (reach === 'air') {
-      this._showTimingIndicator(timing, 'air');
-      this.commentary.onMiss();
-      this.physics.setSeed(null);
-      return;
-    }
-
-    this._showTimingIndicator(timing, reach);
-
-    let velocity = this.physics.calculateShotVelocity(shot, lofted, timing);
-    if (velocity) {
-      if (reach === 'edge') {
-        velocity.multiplyScalar(0.25);
-        velocity.x += (this.physics._rand() - 0.5) * 4;
-        velocity.y = Math.min(velocity.y, 2);
-        this.sound.playEdge();
-      }
-      this.ball.hitByBat(velocity);
-      if (reach !== 'edge') this.sound.playBatCrack();
-      this._showPowerMeter(velocity);
-      this._shotResult = {
-        type: 'hit',
-        shot,
-        timing,
-        lofted: reach === 'edge' ? false : lofted,
-      };
-    }
-
-    this.physics.setSeed(null);
+    const vel = new THREE.Vector3(hitVelocity.x, hitVelocity.y, hitVelocity.z);
+    this.ball.hitByBat(vel);
+    this.sound.playBatCrack();
+    this._showPowerMeter(vel);
+    this._shotResult = {
+      type: 'hit',
+      shot,
+      timing: 'good',
+      lofted,
+    };
   }
 
   onlineBallResult(data) {

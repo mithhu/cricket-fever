@@ -125,8 +125,8 @@ export class NetworkManager {
     this.socket.emit('bowl_input', { line, length, speed });
   }
 
-  sendShotInput(shot, lofted, batsmanX, batsmanZ) {
-    this.socket.emit('shot_input', { shot, lofted, batsmanX, batsmanZ });
+  sendShotInput(shot, lofted, batsmanX, batsmanZ, hitVelocity) {
+    this.socket.emit('shot_input', { shot, lofted, batsmanX, batsmanZ, hitVelocity });
   }
 
   sendBallResult(data) {

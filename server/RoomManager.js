@@ -214,15 +214,14 @@ export class RoomManager {
     const session = room.session;
     if (socket.id !== room.players[session.batterIndex].id) return;
 
-    const { shot, lofted, batsmanX, batsmanZ } = data;
-    const seed = Math.random() * 2147483647 | 0;
+    const { shot, lofted, batsmanX, batsmanZ, hitVelocity } = data;
 
     this.io.to(room.code).emit('shot_played', {
       shot,
       lofted,
       batsmanX,
       batsmanZ,
-      seed,
+      hitVelocity,
       batterName: room.players[session.batterIndex].name,
     });
   }
