@@ -174,7 +174,9 @@ export class PhysicsEngine {
     if (ball.hasBeenHit) return false;
     if (ball.position.z < BATSMAN_Z - 0.5 || ball.position.z > BATSMAN_Z + 2) return false;
     const relativeX = Math.abs(ball.position.x - batsmanX);
-    return relativeX > 1.3;
+    const tooWide = relativeX > 1.3;
+    const tooHigh = ball.position.y > 2.2 && ball.hasBounced;
+    return tooWide || tooHigh;
   }
 
   checkCaught(shotType, timingQuality, lofted) {
